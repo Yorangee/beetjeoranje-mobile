@@ -1000,11 +1000,27 @@ function openCarVisitModal() {
 const FACTUREN_FOLDER_ID = '1hkIVdq-x2gQ_CXlVDhlExXsSaa6q9cNV';
 const PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.2.108/';
 let pdfjsLibPromise = null;
+// pdf.js draait de PDF-verwerking in een Web Worker, en die worker-URL wijst naar een
+// ANDER domein (de CDN) dan de app zelf. Sommige mobiele browsers (met name Safari/iOS)
+// weigeren zo'n cross-origin worker stilletjes, waarna élke PDF-bewerking faalt met een
+// cryptische "undefined is not a function"-fout — niets wijst dan naar de echte oorzaak.
+// Oplossing: de workercode zelf ophalen via fetch() (dat mag wél cross-origin, met CORS)
+// en aanbieden als een same-origin blob-URL, wat deze beperking omzeilt.
 function ensurePdfJs() {
   if (!pdfjsLibPromise) {
-    pdfjsLibPromise = import(PDFJS_BASE + 'pdf.min.mjs').then((mod) => {
-      mod.GlobalWorkerOptions.workerSrc = PDFJS_BASE + 'pdf.worker.min.mjs';
+    pdfjsLibPromise = (async () => {
+      const mod = await import(PDFJS_BASE + 'pdf.min.mjs');
+      const workerRes = await fetch(PDFJS_BASE + 'pdf.worker.min.mjs');
+      if (!workerRes.ok) throw new Error('pdf.js-worker ophalen mislukt (' + workerRes.status + ')');
+      const workerBlob = await workerRes.blob();
+      mod.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
       return mod;
+    })().catch((e) => {
+      // Bij mislukken de cache leeggooien, zodat een volgende poging (nogmaals op
+      // "Ververs" tikken) écht opnieuw probeert i.p.v. voor altijd dezelfde mislukte
+      // poging terug te geven.
+      pdfjsLibPromise = null;
+      throw e;
     });
   }
   return pdfjsLibPromise;
