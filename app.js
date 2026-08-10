@@ -61,8 +61,8 @@ function setupNav() {
       // Budget en notities staan in het gedeelde Drive-bestand — pas ophalen zodra de
       // gebruiker daadwerkelijk naar dat tabblad gaat (en niet steeds opnieuw als het al
       // eerder geladen is, om onnodige Drive-verzoeken te voorkomen).
+      if (target === 'algemeen') { if (isGoogleSignedIn() && !sharedDataLoaded) { loadNotesView(); } else if (sharedDataLoaded) { renderNotesView(); } }
       if (target === 'budget') { if (!isGoogleSignedIn()) { document.getElementById('budgetBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je budget te zien.</div>'; } else if (!sharedDataLoaded) { loadBudgetView(); } else { renderBudgetView(); } }
-      if (target === 'notities') { if (!isGoogleSignedIn()) { document.getElementById('notesList').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je notities te zien.</div>'; } else if (!sharedDataLoaded) { loadNotesView(); } else { renderNotesView(); } }
       if (target === 'sport') { if (!isGoogleSignedIn()) { document.getElementById('weightBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om Sport te zien.</div>'; } else if (!sharedDataLoaded) { loadSportView(); } else { renderWeightBody(); loadNutritionPlan(); renderNutritionBody(); } }
       if (target === 'zzp') { if (!isGoogleSignedIn()) { document.getElementById('btwBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om ZZP te zien.</div>'; } else if (!sharedDataLoaded) { loadZzpView(); } else { renderBtwBody(); renderIncomeBody(); } }
       if (target === 'auto') { if (!isGoogleSignedIn()) { document.getElementById('apkBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om Auto te zien.</div>'; } else if (!sharedDataLoaded) { loadAutoView(); } else { renderApkBody(); renderCarVisitsBody(); } }
@@ -111,6 +111,17 @@ function setupAuto() {
   document.getElementById('carVisitAddBtn').addEventListener('click', openCarVisitModal);
 }
 
+// ---------- Brain dump: knoppen ----------
+function setupBrainDump() {
+  document.getElementById('braindumpTrigger').addEventListener('click', openBrainDumpPanel);
+  document.getElementById('braindumpCloseBtn').addEventListener('click', closeBrainDumpPanel);
+  document.getElementById('braindumpOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeBrainDumpPanel(); });
+  document.getElementById('braindumpAddBtn').addEventListener('click', addBrainDumpEntry);
+  document.getElementById('braindumpInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addBrainDumpEntry(); }
+  });
+}
+
 // ---------- Instellingen-paneel ----------
 function refreshGoogleStatus() {
   const dot = document.getElementById('googleDot');
@@ -136,10 +147,10 @@ function setupSettings() {
     refreshGoogleStatus();
     loadAgenda();
     loadTasks();
+    loadNotesIfSignedIn();
     const activeView = document.querySelector('.view.active');
     const activeName = activeView ? activeView.getAttribute('data-view') : null;
     if (activeName === 'budget' && isGoogleSignedIn()) loadBudgetView();
-    if (activeName === 'notities' && isGoogleSignedIn()) loadNotesView();
     if (activeName === 'sport' && isGoogleSignedIn()) loadSportView();
     if (activeName === 'zzp' && isGoogleSignedIn()) loadZzpView();
     if (activeName === 'auto' && isGoogleSignedIn()) loadAutoView();
@@ -291,6 +302,23 @@ async function completeTodoistTask(id) {
   if (!res.ok) throw new Error('Afvinken mislukt (' + res.status + ')');
 }
 
+// Gebruikt voor de "→ Taak"-knop bij Brain dump: maakt direct een nieuwe taak aan in de
+// Todoist Inbox (zelfde plek waar het desktop-dashboard nieuwe taken ook neerzet).
+async function createTodoistTask(content) {
+  const token = getTodoistToken();
+  const res = await fetch('https://api.todoist.com/api/v1/tasks', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content })
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { const body = await res.json(); detail = body && body.error ? ' — ' + body.error : ''; } catch (e) { /* geen JSON-body */ }
+    throw new Error('Taak aanmaken mislukt (' + res.status + ')' + detail);
+  }
+  return res.json();
+}
+
 function renderTaskList(tasks) {
   const el = document.getElementById('taskList');
   if (tasks.length === 0) { el.innerHTML = '<div class="empty">Geen openstaande taken voor vandaag.</div>'; return; }
@@ -337,9 +365,18 @@ async function loadTasks() {
 // Zonder deze check kon initGoogleAuth() te vroeg draaien en stilletjes mislukken,
 // waarna de inlogknop de melding "vul eerst je Google Client ID in" toonde ook al
 // stond die er allang in.
+// Notities staan (net als agenda/taken) standaard op het startscherm ("Algemeen"), dus
+// die moeten net als agenda/taken meteen bij het opstarten geladen worden i.p.v. pas
+// bij een tab-wissel — die trigger vuurt hier niet, want de gebruiker start al op dit
+// tabblad.
+function loadNotesIfSignedIn() {
+  if (isGoogleSignedIn()) loadNotesView().then(() => renderBrainDumpBadge());
+  else document.getElementById('notesList').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je notities te zien.</div>';
+}
+
 function bootGoogleAuthWhenReady() {
   const ready = () => (window.google && google.accounts && google.accounts.oauth2);
-  const start = () => initGoogleAuth(() => { refreshGoogleStatus(); loadAgenda(); });
+  const start = () => initGoogleAuth(() => { refreshGoogleStatus(); loadAgenda(); loadNotesIfSignedIn(); });
 
   if (ready()) { start(); return; }
 
@@ -370,9 +407,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSport();
   setupZzp();
   setupAuto();
+  setupBrainDump();
   bootGoogleAuthWhenReady();
   loadAgenda();
   loadTasks();
+  loadNotesIfSignedIn();
   document.getElementById('agendaRefreshBtn').addEventListener('click', () => {
     refreshGoogleStatus();
     loadAgenda();

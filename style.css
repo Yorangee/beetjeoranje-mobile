@@ -114,24 +114,19 @@ main {
 }
 .bottom-nav::-webkit-scrollbar { display: none; }
 .nav-btn {
-  flex: 1 1 0; min-width: 44px; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  border: none; background: none; cursor: pointer; padding: 6px 2px; border-radius: 10px;
-  color: var(--muted); font-size: 9px; font-weight: 800; white-space: nowrap;
+  flex: 1 1 0; min-width: 48px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border: none; background: none; cursor: pointer; padding: 6px 4px; border-radius: 10px;
+  color: var(--muted); font-size: 10px; font-weight: 800; white-space: nowrap;
   transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
-.nav-btn .icon { font-size: 17px; line-height: 1; }
+.nav-btn .icon { font-size: 19px; line-height: 1; }
 .nav-btn.active { color: var(--orange-dark); background: rgba(242,144,61,0.14); }
 
-/* 7 tabbladen moeten zonder scrollen passen op een normaal telefoonscherm (≥360px).
-   Op erg smalle schermen valt de tekst onder de iconen weg zodat alleen de iconen
-   overblijven — nog steeds aantikbaar, alleen compacter. */
-@media (max-width: 400px) {
-  .nav-btn { font-size: 8px; padding: 6px 1px; }
-  .nav-btn .icon { font-size: 16px; }
-}
-@media (max-width: 360px) {
+/* Vangnet voor erg smalle schermen: tekstlabels vallen weg, alleen de iconen blijven
+   (nog steeds even goed aantikbaar). */
+@media (max-width: 340px) {
   .nav-btn .label { display: none; }
-  .nav-btn .icon { font-size: 20px; }
+  .nav-btn .icon { font-size: 21px; }
 }
 
 /* ---------- Settings modal ---------- */
@@ -221,6 +216,36 @@ main {
   border: none; background: none; color: var(--orange-dark); font-size: 12px; font-weight: 800;
   padding: 6px 0 0; cursor: pointer;
 }
+
+/* ---------- Brain dump ---------- */
+.braindump-trigger {
+  position: fixed; right: 14px; z-index: 25;
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
+  background: linear-gradient(180deg, #F6A05A, var(--orange)); color: #fff; font-size: 20px;
+  box-shadow: 0 8px 18px rgba(200,90,29,0.35);
+  display: flex; align-items: center; justify-content: center;
+}
+.braindump-badge {
+  position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: 9px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; border: 2px solid #FFFBF4;
+}
+.braindump-item {
+  padding: 10px 0; border-bottom: 1px dashed var(--border-soft);
+}
+.braindump-item:last-child { border-bottom: none; }
+.braindump-item-text { font-size: 13px; color: var(--ink); line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.braindump-item-meta { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+.braindump-item-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.braindump-item-btn {
+  border: 1px solid var(--border-soft); border-radius: 8px; padding: 4px 9px; font-size: 11px; font-weight: 800;
+  background: #fff; color: var(--ink); cursor: pointer;
+}
+.braindump-item-btn.task { color: var(--orange-dark); }
+.braindump-item-btn.note { color: #1E6E8C; }
+.braindump-item-btn.del { color: var(--danger); }
+.braindump-empty { font-size: 12.5px; color: var(--muted); font-style: italic; text-align: center; padding: 16px 0; }
 
 /* ---------- Notitie-editor (rich text) ---------- */
 .note-editor-sheet { max-height: 88vh; overflow-y: auto; }

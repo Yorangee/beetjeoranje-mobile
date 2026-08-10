@@ -18,6 +18,7 @@ const INVOICE_STATUS_KEY = 'beetjeoranje-dashboard-invoice-status-v1';
 const CAR_APK_KEY = 'beetjeoranje-dashboard-car-apk-v1';
 const CAR_VISITS_KEY = 'beetjeoranje-dashboard-car-visits-v1';
 const CAR_DOC_REFS_KEY = 'beetjeoranje-dashboard-car-doc-refs-v1';
+const BRAINDUMP_KEY = 'beetjeoranje-dashboard-braindump-v1';
 
 let sharedSyncFileId = null;
 let sharedData = null; // { [key]: stringValue, ... } — precies zoals cloudSyncSnapshotFromLocalStorage() op desktop
@@ -30,9 +31,15 @@ function pad2(n) { return String(n).padStart(2, '0'); }
 // NIEUW bestand aan i.p.v. het bestaande te overschrijven — zie cloudSyncPush() in het
 // desktop-dashboard), en pakt het meest recente op createdTime. Zo blijft mobiel exact
 // consistent met hoe desktop dit al deed, ook als er meerdere back-upbestanden staan.
+// supportsAllDrives + includeItemsFromAllDrives: zonder deze twee parameters negeert de
+// Drive v3 API stilletjes alles wat in een Gedeelde Drive (Shared Drive) staat i.p.v.
+// "Mijn Drive" — geen foutmelding, gewoon een lege resultatenlijst. Dit was de oorzaak
+// van "facturen niet gevonden": de Facturen-map staat kennelijk in een Gedeelde Drive.
+const DRIVE_ALL_DRIVES_PARAMS = 'supportsAllDrives=true&includeItemsFromAllDrives=true';
+
 async function driveFindLatestSyncFile() {
   const q = encodeURIComponent(`name='${DRIVE_SYNC_FILE_NAME}' and '${DRIVE_SYNC_FOLDER_ID}' in parents and trashed=false`);
-  const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=' + encodeURIComponent('files(id,name,createdTime)') + '&orderBy=createdTime desc&pageSize=5', {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=' + encodeURIComponent('files(id,name,createdTime)') + '&orderBy=createdTime desc&pageSize=5&' + DRIVE_ALL_DRIVES_PARAMS, {
     headers: { Authorization: 'Bearer ' + googleAccessToken }
   });
   if (!res.ok) throw new Error('Drive-bestand zoeken mislukt (' + res.status + ')');
@@ -47,7 +54,7 @@ async function driveCreateSyncFile(payloadObj) {
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
     `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(payloadObj)}\r\n` +
     `--${boundary}--`;
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id&supportsAllDrives=true', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'multipart/related; boundary=' + boundary },
     body
@@ -57,7 +64,7 @@ async function driveCreateSyncFile(payloadObj) {
 }
 
 async function driveReadFileRaw(fileId) {
-  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media', {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true', {
     headers: { Authorization: 'Bearer ' + googleAccessToken }
   });
   if (!res.ok) throw new Error('Drive-bestand lezen mislukt (' + res.status + ')');
@@ -1005,16 +1012,20 @@ function ensurePdfJs() {
 
 async function driveListChildren(folderId) {
   const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
-  const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=' + encodeURIComponent('files(id,name,mimeType)') + '&pageSize=200', {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=' + encodeURIComponent('files(id,name,mimeType)') + '&pageSize=200&' + DRIVE_ALL_DRIVES_PARAMS, {
     headers: { Authorization: 'Bearer ' + googleAccessToken }
   });
-  if (!res.ok) throw new Error('Drive-map ophalen mislukt (' + res.status + ')');
+  if (!res.ok) {
+    let detail = '';
+    try { const body = await res.json(); detail = body && body.error && body.error.message ? ' — ' + body.error.message : ''; } catch (e) { /* geen JSON-body */ }
+    throw new Error('Drive-map ophalen mislukt (' + res.status + ')' + detail);
+  }
   const data = await res.json();
   return data.files || [];
 }
 
 async function extractPdfText(fileId) {
-  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media', {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true', {
     headers: { Authorization: 'Bearer ' + googleAccessToken }
   });
   if (!res.ok) throw new Error('PDF ophalen mislukt (' + res.status + ')');
@@ -1100,12 +1111,21 @@ async function loadInvoicesFromDrive() {
     // betaald-status van een factuur opslaan — anders zou setSharedKey() bij een nog lege
     // sharedData per ongeluk al je andere data (notities/budget/etc.) overschrijven.
     await ensureSharedData();
-    const subfolders = (await driveListChildren(FACTUREN_FOLDER_ID)).filter((f) => f.mimeType === 'application/vnd.google-apps.folder');
+    const rootChildren = await driveListChildren(FACTUREN_FOLDER_ID);
+    const subfolders = rootChildren.filter((f) => f.mimeType === 'application/vnd.google-apps.folder');
+    const rootPdfs = rootChildren.filter((f) => f.mimeType === 'application/pdf').map((f) => ({ file: f, quarterLabel: '' }));
     const perFolder = await Promise.all(subfolders.map(async (folder) => {
       const files = (await driveListChildren(folder.id)).filter((f) => f.mimeType === 'application/pdf');
       return files.map((f) => ({ file: f, quarterLabel: folder.name }));
     }));
-    const allPdfs = perFolder.flat();
+    const allPdfs = rootPdfs.concat(perFolder.flat());
+
+    // Diagnose-info: als er niets gevonden wordt, helpt dit om te zien of de map zelf al
+    // leeg teruggegeven wordt (rechten/verkeerde map) of dat er wel submappen zijn maar
+    // zonder PDF's erin.
+    if (allPdfs.length === 0) {
+      showDebug('Facturen', `Map-inhoud: ${rootChildren.length} item(s) direct in de map, waarvan ${subfolders.length} submap(pen). Geen PDF's gevonden.`);
+    }
 
     if (allPdfs.length === 0) {
       financeInvoicesCache = [];
@@ -1304,4 +1324,122 @@ function renderWeightChart(log) {
     data: { labels, datasets: [{ label: 'Gewicht (kg)', data: values, borderColor: '#E08A3C', backgroundColor: 'rgba(224,138,60,0.15)', borderWidth: 3, pointRadius: 3, pointBackgroundColor: '#C85A1D', tension: 0.3, fill: true }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: (v) => v + ' kg' } }, x: { grid: { display: false } } } }
   });
+}
+
+// ================= BRAIN DUMP =================
+// Altijd-bereikbare snelle-gedachte-opvang, net als desktop: los van welk tabblad je op
+// staat. Items = {id, text, createdAt}, opgeslagen via het gedeelde Drive-bestand.
+function getBrainDumpList() { return getSharedKey(BRAINDUMP_KEY, []); }
+function saveBrainDumpList(list) { setSharedKey(BRAINDUMP_KEY, list); }
+
+function braindumpTimeLabel(ts) {
+  const d = new Date(ts);
+  const today0 = new Date(); today0.setHours(0, 0, 0, 0);
+  const d0 = new Date(d); d0.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today0 - d0) / 86400000);
+  const time = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  if (diffDays === 0) return 'vandaag ' + time;
+  if (diffDays === 1) return 'gisteren ' + time;
+  return d.getDate() + ' ' + MONTH_NAMES_NL[d.getMonth()] + ' ' + time;
+}
+
+function renderBrainDumpBadge() {
+  const badge = document.getElementById('braindumpBadge');
+  if (!badge) return;
+  const n = sharedDataLoaded ? getBrainDumpList().length : 0;
+  if (n > 0) { badge.textContent = String(n); badge.hidden = false; }
+  else { badge.hidden = true; }
+}
+
+function renderBrainDumpList() {
+  const el = document.getElementById('braindumpList');
+  if (!el) return;
+  const list = getBrainDumpList().slice().sort((a, b) => b.createdAt - a.createdAt);
+  if (list.length === 0) {
+    el.innerHTML = '<div class="braindump-empty">Nog niets neergegooid. Typ hierboven je eerste gedachte.</div>';
+    renderBrainDumpBadge();
+    return;
+  }
+  el.innerHTML = list.map((item) => `
+    <div class="braindump-item" data-id="${esc(item.id)}">
+      <div class="braindump-item-text">${esc(item.text)}</div>
+      <div class="braindump-item-meta">${esc(braindumpTimeLabel(item.createdAt))}</div>
+      <div class="braindump-item-actions">
+        <button type="button" class="braindump-item-btn task" data-action="task" data-id="${esc(item.id)}">→ Taak</button>
+        <button type="button" class="braindump-item-btn note" data-action="note" data-id="${esc(item.id)}">→ Notitie</button>
+        <button type="button" class="braindump-item-btn del" data-action="del" data-id="${esc(item.id)}">Verwijderen</button>
+      </div>
+    </div>`).join('');
+
+  el.querySelectorAll('.braindump-item-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-action');
+      const id = btn.getAttribute('data-id');
+      if (action === 'task') convertBrainDumpToTask(id);
+      else if (action === 'note') convertBrainDumpToNote(id);
+      else if (action === 'del') deleteBrainDumpEntry(id);
+    });
+  });
+
+  renderBrainDumpBadge();
+}
+
+async function addBrainDumpEntry() {
+  const input = document.getElementById('braindumpInput');
+  const text = (input.value || '').trim();
+  if (!text) { input.focus(); return; }
+  if (!isGoogleSignedIn()) { alert('Log eerst in met Google via instellingen.'); return; }
+  await ensureSharedData();
+  const list = getBrainDumpList();
+  list.push({ id: genId('bd'), text, createdAt: Date.now() });
+  saveBrainDumpList(list);
+  input.value = '';
+  renderBrainDumpList();
+}
+
+function deleteBrainDumpEntry(id) {
+  saveBrainDumpList(getBrainDumpList().filter((x) => x.id !== id));
+  renderBrainDumpList();
+}
+
+async function convertBrainDumpToTask(id) {
+  const list = getBrainDumpList();
+  const item = list.find((x) => x.id === id);
+  if (!item) return;
+  if (!isTodoistConfigured()) { alert('Voeg eerst je Todoist-token toe via instellingen om hier een taak van te maken.'); return; }
+  try {
+    await createTodoistTask(item.text);
+    saveBrainDumpList(list.filter((x) => x.id !== id));
+    renderBrainDumpList();
+    loadTasks();
+  } catch (e) {
+    console.error(e);
+    alert('Taak aanmaken is mislukt: ' + (e.message || e));
+  }
+}
+
+function convertBrainDumpToNote(id) {
+  const list = getBrainDumpList();
+  const item = list.find((x) => x.id === id);
+  if (!item) return;
+  saveBrainDumpList(list.filter((x) => x.id !== id));
+  renderBrainDumpList();
+  closeBrainDumpPanel();
+  openNoteEditor(null);
+  document.getElementById('noteBodyInput').innerHTML = '<p>' + esc(item.text).replace(/\n/g, '</p><p>') + '</p>';
+}
+
+function openBrainDumpPanel() {
+  document.getElementById('braindumpOverlay').classList.remove('hidden');
+  if (!isGoogleSignedIn()) {
+    document.getElementById('braindumpList').innerHTML = '<div class="braindump-empty">Log eerst in met Google via instellingen om je brain dump te zien.</div>';
+    return;
+  }
+  ensureSharedData().then(renderBrainDumpList).catch((e) => {
+    document.getElementById('braindumpList').innerHTML = '<div class="error">' + esc(e.message) + '</div>';
+  });
+  setTimeout(() => { const el = document.getElementById('braindumpInput'); if (el) el.focus(); }, 0);
+}
+function closeBrainDumpPanel() {
+  document.getElementById('braindumpOverlay').classList.add('hidden');
 }
