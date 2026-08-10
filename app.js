@@ -4,6 +4,24 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// ---------- Zichtbare foutmeldingen (i.p.v. alleen in de onzichtbare console) ----------
+function showDebug(label, detail) {
+  const el = document.getElementById('debugBanner');
+  if (!el) return;
+  const time = new Date().toLocaleTimeString('nl-NL');
+  const line = `[${time}] ${label}: ${detail}`;
+  el.textContent = el.textContent ? (el.textContent + '\n' + line) : line;
+  el.style.display = 'block';
+}
+
+window.addEventListener('error', (e) => {
+  showDebug('JS-fout', (e.message || 'onbekend') + ' (' + (e.filename || '') + ':' + (e.lineno || '') + ')');
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const reason = e.reason;
+  showDebug('Onverwerkte fout', (reason && reason.message) ? reason.message : String(reason));
+});
+
 // ---------- Service worker + update-melding ----------
 function setupServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -183,9 +201,11 @@ async function loadAgenda() {
     const events = await fetchTodayEvents();
     renderAgendaList(events);
     renderBriefSummary(events, lastLoadedTasks);
+    showDebug('Agenda', 'opgehaald, ' + events.length + ' item(s)');
   } catch (e) {
     console.error(e);
     el.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
+    showDebug('Agenda-fout', e.message || String(e));
   }
 }
 
@@ -240,13 +260,11 @@ async function loadTasks() {
     const tasks = await fetchTodoistTasks();
     lastLoadedTasks = tasks;
     renderTaskList(tasks);
-    // Als de agenda al geladen is, samenvatting bijwerken met de taken erbij.
-    if (document.getElementById('agendaList').querySelector('.agenda-item, .empty')) {
-      // geen re-fetch nodig, alleen de briefing-tekst hoeft niet per se opnieuw — optioneel.
-    }
+    showDebug('Taken', 'opgehaald, ' + tasks.length + ' item(s)');
   } catch (e) {
     console.error(e);
     el.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
+    showDebug('Taken-fout', e.message || String(e));
   }
 }
 
