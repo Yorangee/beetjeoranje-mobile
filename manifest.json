@@ -1,0 +1,14 @@
+{
+  "name": "BeetjeOranje Dashboard",
+  "short_name": "BeetjeOranje",
+  "description": "Mobiele versie van het BeetjeOranje ZZP-dashboard",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5A247",
+  "theme_color": "#F2903D",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

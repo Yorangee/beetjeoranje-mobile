@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2903D">
+<title>BeetjeOranje Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="topbar-brand"><span class="topbar-brand-dot"></span>BeetjeOranje</div>
+    <button type="button" class="topbar-settings-btn" id="settingsBtn" title="Instellingen">⚙</button>
+  </div>
+
+  <div class="update-banner" id="updateBanner">
+    <span>Nieuwe versie beschikbaar</span>
+    <button type="button" id="updateReloadBtn">Herladen</button>
+  </div>
+
+  <main>
+    <!-- ---------- Agenda ---------- -->
+    <section class="view active" data-view="agenda">
+      <div class="card">
+        <h2>Vandaag</h2>
+        <div id="briefSummary" class="loading">Even ophalen…</div>
+      </div>
+      <div class="card">
+        <h2>Agenda</h2>
+        <div id="agendaList" class="loading">Log in met Google om je agenda te zien.</div>
+      </div>
+    </section>
+
+    <!-- ---------- Taken ---------- -->
+    <section class="view" data-view="taken">
+      <div class="card">
+        <h2>Taken</h2>
+        <div id="taskList" class="loading">Voeg je Todoist-token toe via instellingen.</div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button type="button" class="nav-btn active" data-nav="agenda"><span class="icon">🏠</span>Agenda</button>
+    <button type="button" class="nav-btn" data-nav="taken"><span class="icon">✅</span>Taken</button>
+  </nav>
+
+  <!-- ---------- Instellingen ---------- -->
+  <div class="modal-overlay hidden" id="settingsOverlay">
+    <div class="modal-sheet">
+      <button type="button" class="modal-close" id="settingsCloseBtn">✕</button>
+      <h3>Instellingen</h3>
+
+      <div class="connection-status"><span class="connection-dot" id="googleDot"></span><span id="googleStatusText">Google: niet ingelogd</span></div>
+      <button type="button" class="btn-primary" id="googleSignInBtn">Inloggen met Google</button>
+
+      <div class="modal-field" style="margin-top:20px;">
+        <label for="todoistTokenInput">Todoist API-token</label>
+        <input type="password" id="todoistTokenInput" placeholder="Plak hier je persoonlijke token" autocomplete="off">
+      </div>
+      <button type="button" class="btn-secondary" id="todoistSaveBtn">Token opslaan</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
