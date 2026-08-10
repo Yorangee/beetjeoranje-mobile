@@ -1138,7 +1138,21 @@ async function loadInvoicesFromDrive() {
       return;
     }
 
+    // pdf.js apart en vooraf laden (i.p.v. pas bij de eerste PDF) zodat een mislukte
+    // library-load een duidelijke, aparte foutmelding geeft i.p.v. dat elke PDF los
+    // "gewoon" faalt en je alleen "geen facturen gevonden" te zien krijgt.
+    try {
+      await ensurePdfJs();
+    } catch (e) {
+      console.error('pdf.js laden mislukt', e);
+      showDebug('Facturen: pdf.js laden mislukt', (e && e.message) ? e.message : String(e));
+      el.innerHTML = '<div class="error">Kon de PDF-leesbibliotheek niet laden: ' + esc((e && e.message) ? e.message : String(e)) + '</div>';
+      financeLoading = false;
+      return;
+    }
+
     let done = 0;
+    let firstError = null;
     const invoices = await runWithConcurrency(allPdfs, 4, async ({ file, quarterLabel }) => {
       try {
         const text = await extractPdfText(file.id);
@@ -1148,12 +1162,27 @@ async function loadInvoicesFromDrive() {
       } catch (e) {
         done++;
         console.error('kon factuur niet lezen', file.name, e);
+        if (!firstError) firstError = { name: file.name, message: (e && e.message) ? e.message : String(e) };
         return null;
       }
     });
 
     financeInvoicesCache = invoices.filter(Boolean);
     financeLoaded = true;
+
+    // Als er wél PDF's gevonden werden maar GEEN ervan gelezen kon worden, is
+    // "geen facturen gevonden" misleidend — toon dan de echte fout.
+    if (financeInvoicesCache.length === 0 && firstError) {
+      showDebug('Facturen: PDF lezen mislukt', `${firstError.name}: ${firstError.message}`);
+      el.className = '';
+      el.innerHTML = `<div class="error">Kon ${allPdfs.length} PDF('s) niet lezen. Eerste fout (${esc(firstError.name)}): ${esc(firstError.message)}</div>`;
+      renderFinanceYearTabs();
+      renderFinanceQuarterTabs();
+      renderOpenInvoicesBody();
+      financeLoading = false;
+      return;
+    }
+
     renderFinanceYearTabs();
     renderFinanceQuarterTabs();
     renderFinanceBody();
