@@ -1040,19 +1040,42 @@ async function driveListChildren(folderId) {
   return data.files || [];
 }
 
-async function extractPdfText(fileId) {
-  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true', {
-    headers: { Authorization: 'Bearer ' + googleAccessToken }
-  });
-  if (!res.ok) throw new Error('PDF ophalen mislukt (' + res.status + ')');
-  const buf = await res.arrayBuffer();
-  const pdfjsLib = await ensurePdfJs();
-  const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+// Geeft zo veel mogelijk diagnostische info terug over een fout — Safari's generieke
+// "undefined is not a function" alleen zegt niets, maar de stacktrace (als die er is)
+// verraadt meestal wél in welke functie het misging.
+function describeError(e, stage) {
+  const base = (e && e.name ? e.name + ': ' : '') + ((e && e.message) ? e.message : String(e));
+  const stack = (e && e.stack) ? ' | stack: ' + String(e.stack).replace(/\s+/g, ' ').slice(0, 220) : '';
+  return '[' + stage + '] ' + base + stack;
+}
+
+async function extractPdfText(fileId, fileName) {
+  let buf;
+  try {
+    const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true', {
+      headers: { Authorization: 'Bearer ' + googleAccessToken }
+    });
+    if (!res.ok) throw new Error('PDF ophalen mislukt (' + res.status + ')');
+    buf = await res.arrayBuffer();
+  } catch (e) { throw new Error(describeError(e, 'ophalen ' + fileName)); }
+
+  let pdfjsLib;
+  try {
+    pdfjsLib = await ensurePdfJs();
+  } catch (e) { throw new Error(describeError(e, 'pdf.js laden')); }
+
+  let doc;
+  try {
+    doc = await pdfjsLib.getDocument({ data: buf }).promise;
+  } catch (e) { throw new Error(describeError(e, 'getDocument ' + fileName)); }
+
   let text = '';
   for (let i = 1; i <= Math.min(doc.numPages, 2); i++) {
-    const page = await doc.getPage(i);
-    const content = await page.getTextContent();
-    text += content.items.map((it) => it.str).join(' ') + '\n';
+    try {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map((it) => it.str).join(' ') + '\n';
+    } catch (e) { throw new Error(describeError(e, 'pagina ' + i + ' lezen ' + fileName)); }
   }
   return text;
 }
@@ -1171,7 +1194,7 @@ async function loadInvoicesFromDrive() {
     let firstError = null;
     const invoices = await runWithConcurrency(allPdfs, 4, async ({ file, quarterLabel }) => {
       try {
-        const text = await extractPdfText(file.id);
+        const text = await extractPdfText(file.id, file.name);
         done++;
         el.innerHTML = `<div class="fin-progress">Facturen verwerken… (${done}/${allPdfs.length})</div>`;
         return parseInvoiceMobile(file, quarterLabel, text);
