@@ -234,7 +234,20 @@ async function fetchCalendarList() {
   });
   if (!res.ok) throw new Error('Agendalijst ophalen mislukt (' + res.status + ')');
   const data = await res.json();
-  return (data.items || []).filter((c) => c.selected !== false && !isExcludedCalendar(c));
+  const all = (data.items || []).filter((c) => c.selected !== false);
+  const kept = all.filter((c) => !isExcludedCalendar(c));
+
+  // Veiligheidsklep: als de uitsluitfilter (UM!W Werkagenda / Planning Yoran) per ongeluk
+  // ÁLLE agenda's zou wegfilteren — bijv. omdat een agenda-naam net iets anders is dan
+  // verwacht en toch op de trefwoorden matcht — val dan terug op de volledige lijst i.p.v.
+  // een helemaal lege agenda te tonen. Beter een agenda te veel dan alles kwijt.
+  if (kept.length === 0 && all.length > 0) {
+    showDebug('Agenda-filter', 'Uitsluiten van UM!W Werkagenda/Planning Yoran zou alle ' + all.length + ' agenda\'s wegfilteren — filter genegeerd. Gevonden agenda\'s: ' + all.map((c) => c.summary || c.id).join(', '));
+    return all;
+  }
+  const excluded = all.filter((c) => isExcludedCalendar(c));
+  if (excluded.length) showDebug('Agenda-filter', 'Genegeerd: ' + excluded.map((c) => c.summary || c.id).join(', '));
+  return kept;
 }
 
 async function fetchTodayEvents() {
