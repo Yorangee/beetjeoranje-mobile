@@ -850,15 +850,17 @@ function renderIncomeBody() {
   const monthsArr = getAnnualIncomeYear(annualIncomeActiveYear);
   const yearTotal = monthsArr.reduce((s, items) => s + annualIncomeMonthTotal(items), 0);
   const now = new Date();
+  const isSameYear = now.getFullYear() === annualIncomeActiveYear;
   const monthsHtml = monthsArr.map((items, idx) => {
-    const isCurrent = now.getFullYear() === annualIncomeActiveYear && idx === now.getMonth();
+    const isCurrent = isSameYear && idx === now.getMonth();
+    const isPast = annualIncomeActiveYear < now.getFullYear() || (isSameYear && idx < now.getMonth());
     const itemsHtml = items.length
       ? items.map((it) => `<div class="income-item-row"><span>${esc(it.label)}</span><span>${eurFmt(it.amount)}</span></div>`).join('')
       : '';
     return `<div class="income-month">
       <div class="income-month-head" style="${isCurrent ? 'text-decoration:underline;' : ''}">
         <span>${esc(MONTH_NAMES_NL[idx])}${isCurrent ? ' (nu)' : ''}</span>
-        <span>${eurFmt(annualIncomeMonthTotal(items))}</span>
+        <span class="income-month-total${isPast ? ' past' : ''}">${eurFmt(annualIncomeMonthTotal(items))}</span>
       </div>
       ${itemsHtml}
       <button type="button" class="budget-add-link" data-month="${idx}">+ item toevoegen</button>
@@ -1337,10 +1339,10 @@ function renderFinanceBody() {
 
   const statsHtml = `
     <div class="fin-stat-row">
-      <div class="fin-stat"><div class="fin-stat-label">Omzet excl. btw</div><div class="fin-stat-value">${eurFmt(omzetExcl)}</div></div>
-      <div class="fin-stat"><div class="fin-stat-label">Btw af te dragen</div><div class="fin-stat-value">${eurFmt(btwTotal)}</div></div>
-      <div class="fin-stat"><div class="fin-stat-label">Reservering 30%</div><div class="fin-stat-value">${eurFmt(reservering)}</div></div>
-      <div class="fin-stat"><div class="fin-stat-label">Netto over</div><div class="fin-stat-value">${eurFmt(netto)}</div></div>
+      <div class="fin-stat fin-stat-omzet"><div class="fin-stat-label">Omzet excl. btw</div><div class="fin-stat-value">${eurFmt(omzetExcl)}</div></div>
+      <div class="fin-stat fin-stat-btw"><div class="fin-stat-label">Btw af te dragen</div><div class="fin-stat-value">${eurFmt(btwTotal)}</div></div>
+      <div class="fin-stat fin-stat-reservering"><div class="fin-stat-label">Reservering 30%</div><div class="fin-stat-value">${eurFmt(reservering)}</div></div>
+      <div class="fin-stat fin-stat-netto"><div class="fin-stat-label">Netto over</div><div class="fin-stat-value">${eurFmt(netto)}</div></div>
     </div>`;
 
   const rowsHtml = invoices.map((i) => `
@@ -1560,4 +1562,77 @@ async function openBrainDumpPanel() {
 }
 function closeBrainDumpPanel() {
   document.getElementById('braindumpOverlay').classList.add('hidden');
+}
+
+// ================= AUTO: HANDLEIDING (PDF-viewer) =================
+// Werkt met dezelfde pdf.js-library als de facturen, maar dan om pagina's als plaatje
+// te renderen i.p.v. tekst te lezen. Het PDF-bestand zelf staat gewoon als los bestand
+// in dezelfde GitHub-repo (net als index.html/app.js) — geen Google Drive nodig.
+const CAR_MANUAL_PDF_URL = 'manual/handleiding.pdf';
+let manualPdfDoc = null;
+let manualCurrentPage = 1;
+let manualPdfLoadPromise = null;
+
+function ensureManualPdfLoaded() {
+  if (manualPdfDoc) return Promise.resolve(manualPdfDoc);
+  if (!manualPdfLoadPromise) {
+    manualPdfLoadPromise = (async () => {
+      await ensurePdfJs();
+      const doc = await window.pdfjsLib.getDocument(CAR_MANUAL_PDF_URL).promise;
+      manualPdfDoc = doc;
+      return doc;
+    })().catch((e) => {
+      manualPdfLoadPromise = null;
+      throw e;
+    });
+  }
+  return manualPdfLoadPromise;
+}
+
+async function renderManualPage() {
+  const canvas = document.getElementById('manualViewerCanvas');
+  const info = document.getElementById('manualPageInfo');
+  if (!manualPdfDoc || !canvas) return;
+  const page = await manualPdfDoc.getPage(manualCurrentPage);
+  const baseViewport = page.getViewport({ scale: 1 });
+  const wrapWidth = (canvas.parentElement && canvas.parentElement.clientWidth) || 320;
+  const scale = Math.min(2.5, Math.max(0.5, wrapWidth / baseViewport.width));
+  const viewport = page.getViewport({ scale });
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  if (info) info.textContent = 'Pagina ' + manualCurrentPage + ' / ' + manualPdfDoc.numPages;
+}
+
+async function openManualViewer() {
+  const overlay = document.getElementById('manualViewerOverlay');
+  const bodyEl = document.getElementById('manualViewerBody');
+  const info = document.getElementById('manualPageInfo');
+  overlay.classList.remove('hidden');
+  if (info) info.textContent = manualPdfDoc ? '' : 'Laden…';
+  try {
+    await ensureManualPdfLoaded();
+    if (!manualCurrentPage) manualCurrentPage = 1;
+    bodyEl.innerHTML = '<canvas id="manualViewerCanvas"></canvas>';
+    await renderManualPage();
+  } catch (e) {
+    console.error(e);
+    bodyEl.innerHTML = '<div class="error">Handleiding laden mislukt: ' + esc(e.message || e) + '</div>';
+    if (info) info.textContent = '';
+    showDebug('Handleiding-fout', e.message || String(e));
+  }
+}
+function closeManualViewer() {
+  document.getElementById('manualViewerOverlay').classList.add('hidden');
+}
+function manualNextPage() {
+  if (!manualPdfDoc || manualCurrentPage >= manualPdfDoc.numPages) return;
+  manualCurrentPage++;
+  renderManualPage();
+}
+function manualPrevPage() {
+  if (!manualPdfDoc || manualCurrentPage <= 1) return;
+  manualCurrentPage--;
+  renderManualPage();
 }

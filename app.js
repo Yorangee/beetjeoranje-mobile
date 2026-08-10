@@ -132,6 +132,11 @@ function setupZzp() {
 // ---------- Auto: knoppen ----------
 function setupAuto() {
   document.getElementById('carVisitAddBtn').addEventListener('click', openCarVisitModal);
+  document.getElementById('carManualOpenBtn').addEventListener('click', openManualViewer);
+  document.getElementById('manualViewerCloseBtn').addEventListener('click', closeManualViewer);
+  document.getElementById('manualViewerOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeManualViewer(); });
+  document.getElementById('manualPrevBtn').addEventListener('click', manualPrevPage);
+  document.getElementById('manualNextBtn').addEventListener('click', manualNextPage);
 }
 
 // ---------- Brain dump: knoppen ----------
@@ -199,13 +204,37 @@ function ymd(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+// Zelfde uitsluiting als op de desktop-versie: deze agenda's worden nergens getoond
+// (agenda, briefing). Matching is hoofdletter- én leesteken-ongevoelig, dus "UM!W" matcht
+// ook gewoon "umw" — zie EXCLUDED_CALENDAR_NAMES in het desktop-dashboard.
+const EXCLUDED_CALENDAR_NAMES = ['umw werkagenda', 'planning yoran'];
+function normalizeCalName(v) {
+  return String(v || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function matchesExcludedName(name) {
+  return EXCLUDED_CALENDAR_NAMES.some((excluded) => {
+    const keywords = normalizeCalName(excluded).split(/\s+/).filter(Boolean);
+    return keywords.every((k) => name.includes(k));
+  });
+}
+function isExcludedCalendar(cal) {
+  const candidates = [cal.summary, cal.summaryOverride, cal.id, cal.description].filter(Boolean).map(normalizeCalName);
+  return candidates.some(matchesExcludedName);
+}
+
 async function fetchCalendarList() {
   const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader', {
     headers: { Authorization: 'Bearer ' + googleAccessToken }
   });
   if (!res.ok) throw new Error('Agendalijst ophalen mislukt (' + res.status + ')');
   const data = await res.json();
-  return (data.items || []).filter((c) => c.selected !== false);
+  return (data.items || []).filter((c) => c.selected !== false && !isExcludedCalendar(c));
 }
 
 async function fetchTodayEvents() {
@@ -306,18 +335,46 @@ async function loadAgenda() {
 // Let op: Todoist heeft de oude "rest/v2"-API per februari 2026 uitgefaseerd
 // ten gunste van de nieuwe samengevoegde "api/v1"-API. Lijst-endpoints geven nu
 // { results: [...], next_cursor: ... } terug in plaats van rechtstreeks een array.
+// Geen filter meer op alleen "vandaag/te laat" — we halen nu alle openstaande taken op
+// (met paginering) zodat we zelf kunnen splitsen in Vandaag/Aankomend/Zonder datum,
+// net als op de desktop-versie.
 async function fetchTodoistTasks() {
   const token = getTodoistToken();
-  const res = await fetch('https://api.todoist.com/api/v1/tasks?filter=' + encodeURIComponent('today | overdue'), {
-    headers: { Authorization: 'Bearer ' + token }
-  });
-  if (!res.ok) {
-    let detail = '';
-    try { const body = await res.json(); detail = body && body.error ? ' — ' + body.error : ''; } catch (e) { /* geen JSON-body */ }
-    throw new Error('Taken ophalen mislukt (' + res.status + ')' + detail);
+  let tasks = [];
+  let cursor = null;
+  for (let i = 0; i < 8; i++) {
+    const url = new URL('https://api.todoist.com/api/v1/tasks');
+    if (cursor) url.searchParams.set('cursor', cursor);
+    const res = await fetch(url.toString(), { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) {
+      let detail = '';
+      try { const body = await res.json(); detail = body && body.error ? ' — ' + body.error : ''; } catch (e) { /* geen JSON-body */ }
+      throw new Error('Taken ophalen mislukt (' + res.status + ')' + detail);
+    }
+    const data = await res.json();
+    const items = Array.isArray(data) ? data : (data.results || []);
+    tasks = tasks.concat(items);
+    cursor = Array.isArray(data) ? null : data.next_cursor;
+    if (!cursor) break;
   }
-  const data = await res.json();
-  return Array.isArray(data) ? data : (data.results || []);
+  return tasks;
+}
+
+// Geeft de deadline van een taak terug als "YYYY-MM-DD" (of null zonder deadline) —
+// Todoist geeft bij taken met een tijdstip erbij ook een tijd-component mee in .date.
+function taskDueYmd(t) {
+  if (!t || !t.due) return null;
+  const raw = t.due.date || '';
+  if (!raw) return null;
+  return raw.includes('T') ? raw.split('T')[0] : raw;
+}
+
+const DAY_NAMES_SHORT_NL = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'];
+const MONTH_NAMES_SHORT_NL = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+function formatTaskDateShort(ymdStr) {
+  const d = new Date(ymdStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return ymdStr;
+  return DAY_NAMES_SHORT_NL[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES_SHORT_NL[d.getMonth()];
 }
 
 async function completeTodoistTask(id) {
@@ -327,6 +384,108 @@ async function completeTodoistTask(id) {
     headers: { Authorization: 'Bearer ' + token }
   });
   if (!res.ok) throw new Error('Afvinken mislukt (' + res.status + ')');
+}
+
+// Bijwerken van tekst en/of deadline van een bestaande taak. `payload` mag `content`,
+// `due_date` (YYYY-MM-DD) en/of `due_string: 'no date'` (om de deadline te verwijderen) bevatten.
+async function updateTodoistTask(id, payload) {
+  const token = getTodoistToken();
+  const res = await fetch('https://api.todoist.com/api/v1/tasks/' + id, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { const body = await res.json(); detail = body && body.error ? ' — ' + body.error : ''; } catch (e) { /* geen JSON-body */ }
+    throw new Error('Taak bijwerken mislukt (' + res.status + ')' + detail);
+  }
+  return res.json();
+}
+
+async function deleteTodoistTask(id) {
+  const token = getTodoistToken();
+  const res = await fetch('https://api.todoist.com/api/v1/tasks/' + id, {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!res.ok) throw new Error('Verwijderen mislukt (' + res.status + ')');
+}
+
+// "Naar morgen verplaatsen": schuift de huidige deadline één dag op (voor een taak van
+// vandaag/te laat komt dat neer op "morgen"; bij een al verzette taak schuift 'ie steeds
+// een dag verder door, net als de postpone-knop op de desktop-versie).
+async function postponeTask(id) {
+  const t = allTasksCache.find((x) => x.id === id);
+  if (!t) return;
+  const cur = taskDueYmd(t);
+  if (!cur) return;
+  const d = new Date(cur + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  try {
+    await updateTodoistTask(id, { due_date: ymd(d) });
+    loadTasks();
+  } catch (e) {
+    console.error(e);
+    alert('Verplaatsen mislukt: ' + (e.message || e));
+  }
+}
+
+// ---------- Taak bewerken (modal) ----------
+let editingTaskId = null;
+function openTaskEditModal(t) {
+  if (!t) return;
+  editingTaskId = t.id;
+  document.getElementById('taskEditTextInput').value = t.content || '';
+  document.getElementById('taskEditDateInput').value = taskDueYmd(t) || '';
+  document.getElementById('taskEditErrorField').style.display = 'none';
+  document.getElementById('taskEditOverlay').classList.remove('hidden');
+}
+function closeTaskEditModal() {
+  document.getElementById('taskEditOverlay').classList.add('hidden');
+  editingTaskId = null;
+}
+async function saveTaskEdit() {
+  if (!editingTaskId) { closeTaskEditModal(); return; }
+  const errEl = document.getElementById('taskEditErrorField');
+  const text = document.getElementById('taskEditTextInput').value.trim();
+  const dateVal = document.getElementById('taskEditDateInput').value;
+  errEl.style.display = 'none';
+  if (!text) { errEl.textContent = 'Geef de taak een omschrijving.'; errEl.style.display = ''; return; }
+  const btn = document.getElementById('taskEditSaveBtn');
+  btn.disabled = true;
+  try {
+    const payload = { content: text };
+    if (dateVal) payload.due_date = dateVal; else payload.due_string = 'no date';
+    await updateTodoistTask(editingTaskId, payload);
+    closeTaskEditModal();
+    loadTasks();
+  } catch (e) {
+    console.error(e);
+    errEl.textContent = 'Opslaan mislukt: ' + (e.message || e);
+    errEl.style.display = '';
+  } finally {
+    btn.disabled = false;
+  }
+}
+async function deleteTaskFromEdit() {
+  if (!editingTaskId) return;
+  if (!confirm('Deze taak verwijderen?')) return;
+  const id = editingTaskId;
+  try {
+    await deleteTodoistTask(id);
+    closeTaskEditModal();
+    loadTasks();
+  } catch (e) {
+    console.error(e);
+    alert('Verwijderen mislukt: ' + (e.message || e));
+  }
+}
+function setupTaskEdit() {
+  document.getElementById('taskEditCloseBtn').addEventListener('click', closeTaskEditModal);
+  document.getElementById('taskEditOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeTaskEditModal(); });
+  document.getElementById('taskEditSaveBtn').addEventListener('click', saveTaskEdit);
+  document.getElementById('taskEditDeleteBtn').addEventListener('click', deleteTaskFromEdit);
 }
 
 // Gebruikt voor de "→ Taak"-knop bij Brain dump: maakt direct een nieuwe taak aan in de
@@ -346,15 +505,46 @@ async function createTodoistTask(content) {
   return res.json();
 }
 
+function taskRowHtml(t, overdue) {
+  const dueYmd = taskDueYmd(t);
+  return `<div class="task-row" data-id="${esc(t.id)}">
+    <button type="button" class="task-check" data-id="${esc(t.id)}" title="Afvinken"></button>
+    <span class="txt">${esc(t.content)}</span>
+    <span class="due${overdue ? ' overdue' : ''}">${dueYmd ? esc(formatTaskDateShort(dueYmd)) : ''}</span>
+    ${dueYmd ? `<button type="button" class="task-postpone-btn" data-id="${esc(t.id)}" title="Naar morgen verplaatsen">→</button>` : ''}
+    <button type="button" class="task-edit-btn" data-id="${esc(t.id)}" title="Bewerken">✎</button>
+  </div>`;
+}
+
+// Verdeelt taken in Vandaag (incl. te laat)/Aankomend/Zonder datum, net als op de
+// desktop-versie — i.p.v. één platte lijst.
 function renderTaskList(tasks) {
   const el = document.getElementById('taskList');
-  if (tasks.length === 0) { el.innerHTML = '<div class="empty">Geen openstaande taken voor vandaag.</div>'; return; }
-  el.innerHTML = tasks.map((t) => `
-    <div class="task-row" data-id="${esc(t.id)}">
-      <button type="button" class="task-check" data-id="${esc(t.id)}" title="Afvinken"></button>
-      <span class="txt">${esc(t.content)}</span>
-      <span class="due">${t.due ? esc(t.due.date) : ''}</span>
-    </div>`).join('');
+  const todayYmd = ymd(new Date());
+
+  const withDue = tasks.filter((t) => taskDueYmd(t));
+  const withoutDue = tasks.filter((t) => !taskDueYmd(t));
+  const todayGroup = withDue.filter((t) => taskDueYmd(t) <= todayYmd).sort((a, b) => taskDueYmd(a).localeCompare(taskDueYmd(b)));
+  const upcomingGroup = withDue.filter((t) => taskDueYmd(t) > todayYmd).sort((a, b) => taskDueYmd(a).localeCompare(taskDueYmd(b)));
+
+  if (todayGroup.length === 0 && upcomingGroup.length === 0 && withoutDue.length === 0) {
+    el.innerHTML = '<div class="empty">Geen openstaande taken.</div>';
+    return;
+  }
+
+  let html = '<div class="task-group-title">Vandaag</div>';
+  html += todayGroup.length
+    ? todayGroup.map((t) => taskRowHtml(t, taskDueYmd(t) < todayYmd)).join('')
+    : '<div class="empty">Niets voor vandaag.</div>';
+  if (upcomingGroup.length) {
+    html += '<div class="task-group-title">Aankomend</div>';
+    html += upcomingGroup.map((t) => taskRowHtml(t, false)).join('');
+  }
+  if (withoutDue.length) {
+    html += '<div class="task-group-title">Zonder datum</div>';
+    html += withoutDue.map((t) => taskRowHtml(t, false)).join('');
+  }
+  el.innerHTML = html;
 
   el.querySelectorAll('.task-check').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -369,7 +559,18 @@ function renderTaskList(tasks) {
       }
     });
   });
+  el.querySelectorAll('.task-postpone-btn').forEach((btn) => {
+    btn.addEventListener('click', () => postponeTask(btn.getAttribute('data-id')));
+  });
+  el.querySelectorAll('.task-edit-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const t = allTasksCache.find((x) => x.id === btn.getAttribute('data-id'));
+      openTaskEditModal(t);
+    });
+  });
 }
+
+let allTasksCache = [];
 
 async function loadTasks() {
   const el = document.getElementById('taskList');
@@ -377,7 +578,9 @@ async function loadTasks() {
   el.innerHTML = '<div class="loading">Taken ophalen…</div>';
   try {
     const tasks = await fetchTodoistTasks();
-    lastLoadedTasks = tasks;
+    allTasksCache = tasks;
+    const todayYmd = ymd(new Date());
+    lastLoadedTasks = tasks.filter((t) => { const d = taskDueYmd(t); return d && d <= todayYmd; });
     renderTaskList(tasks);
   } catch (e) {
     console.error(e);
@@ -436,6 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupZzp();
   setupAuto();
   setupBrainDump();
+  setupTaskEdit();
   bootGoogleAuthWhenReady();
   loadAgenda();
   loadTasks();
