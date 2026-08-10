@@ -264,16 +264,21 @@ async function fetchTodayEvents() {
 
   // Net als op de desktop-versie: over ál je agenda's zoeken, niet alleen de hoofdagenda.
   const calendars = await fetchCalendarList();
+  const diag = [];
   const perCalendar = await Promise.all(calendars.map(async (cal) => {
+    const label = cal.summary || cal.id;
     try {
       const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(cal.id) + '/events?' + params.toString(), {
         headers: { Authorization: 'Bearer ' + googleAccessToken }
       });
-      if (!res.ok) return [];
+      if (!res.ok) { diag.push(label + ': HTTP ' + res.status); return []; }
       const data = await res.json();
-      return (data.items || []).map((e) => Object.assign({}, e, { __calendarId: cal.id }));
+      const items = data.items || [];
+      diag.push(label + ': ' + items.length + ' item(s)');
+      return items.map((e) => Object.assign({}, e, { __calendarId: cal.id }));
     } catch (e) {
       console.error('events ophalen mislukt voor', cal.id, e);
+      diag.push(label + ': fout — ' + (e.message || e));
       return [];
     }
   }));
@@ -286,7 +291,7 @@ async function fetchTodayEvents() {
   });
 
   // Alleen afspraken die nog moeten komen (of nog bezig zijn) — net als op de desktop-versie.
-  return events.filter((e) => {
+  const upcoming = events.filter((e) => {
     if (e.start && e.start.date) return true; // hele dag
     if (e.start && e.start.dateTime) {
       const end = e.end && e.end.dateTime ? new Date(e.end.dateTime) : new Date(e.start.dateTime);
@@ -294,6 +299,15 @@ async function fetchTodayEvents() {
     }
     return false;
   });
+
+  // Alleen loggen als er verder niks te zien is — dan is dit precies de info die nodig is
+  // om te zien waar het misgaat: geen agenda's gevonden, een agenda die een HTTP-fout geeft,
+  // of agenda's die simpelweg 0 afspraken voor vandaag hebben.
+  if (upcoming.length === 0) {
+    showDebug('Agenda-diagnose', calendars.length + ' agenda(\'s) doorzocht: ' + (diag.length ? diag.join(' | ') : 'geen'));
+  }
+
+  return upcoming;
 }
 
 function renderAgendaList(events) {
