@@ -136,9 +136,9 @@ main {
 .modal-sheet h3 { margin: 0 0 14px; font-size: 16px; font-weight: 800; color: var(--orange-dark); }
 .modal-field { margin-bottom: 14px; }
 .modal-field label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
-.modal-field input {
+.modal-field input, .modal-field select, .modal-field textarea {
   width: 100%; border: 1px solid var(--border-soft); border-radius: 10px; padding: 10px 12px;
-  font-size: 14px; font-family: inherit; background: #fff; color: var(--ink);
+  font-size: 14px; font-family: inherit; background: #fff; color: var(--ink); resize: vertical;
 }
 .btn-primary {
   width: 100%; border: none; border-radius: 12px; padding: 12px; margin-top: 4px;
@@ -157,3 +157,39 @@ main {
   width: 30px; height: 30px; border-radius: 50%; font-size: 14px; color: var(--muted); cursor: pointer;
 }
 .modal-sheet { position: relative; }
+
+/* ---------- Budget ---------- */
+.budget-nav-arrow {
+  border: none; background: rgba(242,144,61,0.14); color: var(--orange-dark);
+  width: 24px; height: 24px; border-radius: 8px; font-size: 15px; font-weight: 800; cursor: pointer;
+  line-height: 1;
+}
+.budget-income-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0 12px; font-size: 14px; font-weight: 800; color: var(--ink);
+  border-bottom: 1px dashed var(--border-soft); margin-bottom: 10px;
+}
+.budget-envelope { margin-bottom: 14px; }
+.budget-envelope:last-child { margin-bottom: 0; }
+.budget-envelope-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; font-weight: 800; color: var(--orange-dark); margin-bottom: 6px;
+}
+.budget-item-row {
+  display: flex; justify-content: space-between; padding: 6px 0;
+  font-size: 13px; font-weight: 600; border-bottom: 1px dashed var(--border-soft);
+}
+.budget-item-row:last-of-type { border-bottom: none; }
+.budget-add-link {
+  border: none; background: none; color: var(--orange-dark); font-size: 12px; font-weight: 800;
+  padding: 6px 0 0; cursor: pointer;
+}
+
+/* ---------- Notities ---------- */
+.note-row {
+  padding: 10px 0; border-bottom: 1px dashed var(--border-soft); cursor: pointer;
+}
+.note-row:last-child { border-bottom: none; }
+.note-row-title { font-size: 14px; font-weight: 800; color: var(--ink); }
+.note-row-meta { font-size: 11px; font-weight: 700; color: var(--muted); margin: 2px 0 4px; }
+.note-row-preview { font-size: 12.5px; color: var(--ink); opacity: 0.75; }

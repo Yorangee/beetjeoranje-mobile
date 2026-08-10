@@ -1,12 +1,13 @@
 // Verhoog dit versienummer bij elke deploy — dat forceert een verse cache
 // en triggert de "nieuwe versie beschikbaar" melding in de app.
-const CACHE_NAME = 'beetjeoranje-mobile-v1';
+const CACHE_NAME = 'beetjeoranje-mobile-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './auth.js',
+  './data.js',
   './manifest.json',
   './icon.svg'
 ];

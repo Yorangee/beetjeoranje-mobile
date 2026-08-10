@@ -58,8 +58,31 @@ function setupNav() {
       const target = btn.getAttribute('data-nav');
       document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
       document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.getAttribute('data-view') === target));
+      // Budget en notities staan in het gedeelde Drive-bestand — pas ophalen zodra de
+      // gebruiker daadwerkelijk naar dat tabblad gaat (en niet steeds opnieuw als het al
+      // eerder geladen is, om onnodige Drive-verzoeken te voorkomen).
+      if (target === 'budget') { if (!isGoogleSignedIn()) { document.getElementById('budgetBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je budget te zien.</div>'; } else if (!sharedDataLoaded) { loadBudgetView(); } else { renderBudgetView(); } }
+      if (target === 'notities') { if (!isGoogleSignedIn()) { document.getElementById('notesList').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je notities te zien.</div>'; } else if (!sharedDataLoaded) { loadNotesView(); } else { renderNotesView(); } }
     });
   });
+}
+
+// ---------- Budget: maand wisselen ----------
+function setupBudgetNav() {
+  document.getElementById('budgetPrevBtn').addEventListener('click', () => shiftBudgetMonth(-1));
+  document.getElementById('budgetNextBtn').addEventListener('click', () => shiftBudgetMonth(1));
+  document.getElementById('budgetItemCloseBtn').addEventListener('click', closeBudgetItemModal);
+  document.getElementById('budgetItemOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeBudgetItemModal(); });
+  document.getElementById('budgetItemSaveBtn').addEventListener('click', saveBudgetItemFromModal);
+}
+
+// ---------- Notities: knoppen ----------
+function setupNotes() {
+  document.getElementById('noteAddBtn').addEventListener('click', () => openNoteEditor(null));
+  document.getElementById('noteEditorCloseBtn').addEventListener('click', closeNoteEditor);
+  document.getElementById('noteEditorOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeNoteEditor(); });
+  document.getElementById('noteSaveBtn').addEventListener('click', saveNoteFromEditor);
+  document.getElementById('noteDeleteBtn').addEventListener('click', deleteNoteFromEditor);
 }
 
 // ---------- Instellingen-paneel ----------
@@ -87,6 +110,10 @@ function setupSettings() {
     refreshGoogleStatus();
     loadAgenda();
     loadTasks();
+    const activeView = document.querySelector('.view.active');
+    const activeName = activeView ? activeView.getAttribute('data-view') : null;
+    if (activeName === 'budget' && isGoogleSignedIn()) loadBudgetView();
+    if (activeName === 'notities' && isGoogleSignedIn()) loadNotesView();
   };
   document.getElementById('settingsCloseBtn').addEventListener('click', closeSettingsAndRefresh);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSettingsAndRefresh(); });
@@ -201,7 +228,6 @@ async function loadAgenda() {
     const events = await fetchTodayEvents();
     renderAgendaList(events);
     renderBriefSummary(events, lastLoadedTasks);
-    showDebug('Agenda', 'opgehaald, ' + events.length + ' item(s)');
   } catch (e) {
     console.error(e);
     el.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
@@ -269,7 +295,6 @@ async function loadTasks() {
     const tasks = await fetchTodoistTasks();
     lastLoadedTasks = tasks;
     renderTaskList(tasks);
-    showDebug('Taken', 'opgehaald, ' + tasks.length + ' item(s)');
   } catch (e) {
     console.error(e);
     el.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
@@ -311,6 +336,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupServiceWorker();
   setupNav();
   setupSettings();
+  setupBudgetNav();
+  setupNotes();
   bootGoogleAuthWhenReady();
   loadAgenda();
   loadTasks();

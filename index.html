@@ -45,11 +45,36 @@
         <div id="taskList" class="loading">Voeg je Todoist-token toe via instellingen.</div>
       </div>
     </section>
+
+    <!-- ---------- Budget ---------- -->
+    <section class="view" data-view="budget">
+      <div class="card">
+        <h2>
+          Budget
+          <span style="float:right; display:flex; align-items:center; gap:6px;">
+            <button type="button" id="budgetPrevBtn" class="budget-nav-arrow">‹</button>
+            <span id="budgetMonthLabel" style="font-size:12.5px; font-weight:800; color:var(--muted);"></span>
+            <button type="button" id="budgetNextBtn" class="budget-nav-arrow">›</button>
+          </span>
+        </h2>
+        <div id="budgetBody" class="loading">Even ophalen…</div>
+      </div>
+    </section>
+
+    <!-- ---------- Notities ---------- -->
+    <section class="view" data-view="notities">
+      <div class="card">
+        <h2>Notities <button type="button" id="noteAddBtn" style="float:right; border:none; background:rgba(242,144,61,0.14); color:var(--orange-dark); font-size:11.5px; font-weight:800; padding:5px 10px; border-radius:8px;">+ Nieuw</button></h2>
+        <div id="notesList" class="loading">Even ophalen…</div>
+      </div>
+    </section>
   </main>
 
   <nav class="bottom-nav">
     <button type="button" class="nav-btn active" data-nav="agenda"><span class="icon">🏠</span>Agenda</button>
     <button type="button" class="nav-btn" data-nav="taken"><span class="icon">✅</span>Taken</button>
+    <button type="button" class="nav-btn" data-nav="budget"><span class="icon">💶</span>Budget</button>
+    <button type="button" class="nav-btn" data-nav="notities"><span class="icon">📝</span>Notities</button>
   </nav>
 
   <!-- ---------- Instellingen ---------- -->
@@ -69,10 +94,50 @@
     </div>
   </div>
 
+  <!-- ---------- Notitie bewerken ---------- -->
+  <div class="modal-overlay hidden" id="noteEditorOverlay">
+    <div class="modal-sheet">
+      <button type="button" class="modal-close" id="noteEditorCloseBtn">✕</button>
+      <h3>Notitie</h3>
+      <div class="modal-field">
+        <label for="noteTitleInput">Titel</label>
+        <input type="text" id="noteTitleInput" placeholder="Titel">
+      </div>
+      <div class="modal-field">
+        <label for="noteCategorySelect">Categorie</label>
+        <select id="noteCategorySelect"></select>
+      </div>
+      <div class="modal-field">
+        <label for="noteBodyInput">Inhoud</label>
+        <textarea id="noteBodyInput" rows="6" placeholder="Schrijf hier je notitie..."></textarea>
+      </div>
+      <button type="button" class="btn-primary" id="noteSaveBtn">Opslaan</button>
+      <button type="button" class="btn-secondary" id="noteDeleteBtn" style="color:var(--danger);">Verwijderen</button>
+    </div>
+  </div>
+
+  <!-- ---------- Budget-item toevoegen ---------- -->
+  <div class="modal-overlay hidden" id="budgetItemOverlay">
+    <div class="modal-sheet">
+      <button type="button" class="modal-close" id="budgetItemCloseBtn">✕</button>
+      <h3 id="budgetItemModalTitle">Item toevoegen</h3>
+      <div class="modal-field">
+        <label for="budgetItemLabelInput">Omschrijving</label>
+        <input type="text" id="budgetItemLabelInput" placeholder="Bijv. Huur">
+      </div>
+      <div class="modal-field">
+        <label for="budgetItemAmountInput">Bedrag (€)</label>
+        <input type="number" step="0.01" inputmode="decimal" id="budgetItemAmountInput" placeholder="0,00">
+      </div>
+      <button type="button" class="btn-primary" id="budgetItemSaveBtn">Toevoegen</button>
+    </div>
+  </div>
+
 </div>
 
 <script src="https://accounts.google.com/gsi/client" async defer id="gsiScript"></script>
 <script src="auth.js"></script>
+<script src="data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
