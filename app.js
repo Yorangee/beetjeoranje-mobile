@@ -209,22 +209,31 @@ async function loadAgenda() {
   }
 }
 
-// ---------- Taken (rechtstreeks Todoist REST API) ----------
+// ---------- Taken (rechtstreeks Todoist API) ----------
+// Let op: Todoist heeft de oude "rest/v2"-API per februari 2026 uitgefaseerd
+// ten gunste van de nieuwe samengevoegde "api/v1"-API. Lijst-endpoints geven nu
+// { results: [...], next_cursor: ... } terug in plaats van rechtstreeks een array.
 async function fetchTodoistTasks() {
   const token = getTodoistToken();
-  const res = await fetch('https://api.todoist.com/rest/v2/tasks?filter=' + encodeURIComponent('today | overdue'), {
+  const res = await fetch('https://api.todoist.com/api/v1/tasks?filter=' + encodeURIComponent('today | overdue'), {
     headers: { Authorization: 'Bearer ' + token }
   });
-  if (!res.ok) throw new Error('Taken ophalen mislukt (' + res.status + ')');
-  return res.json();
+  if (!res.ok) {
+    let detail = '';
+    try { const body = await res.json(); detail = body && body.error ? ' — ' + body.error : ''; } catch (e) { /* geen JSON-body */ }
+    throw new Error('Taken ophalen mislukt (' + res.status + ')' + detail);
+  }
+  const data = await res.json();
+  return Array.isArray(data) ? data : (data.results || []);
 }
 
 async function completeTodoistTask(id) {
   const token = getTodoistToken();
-  await fetch('https://api.todoist.com/rest/v2/tasks/' + id + '/close', {
+  const res = await fetch('https://api.todoist.com/api/v1/tasks/' + id + '/close', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + token }
   });
+  if (!res.ok) throw new Error('Afvinken mislukt (' + res.status + ')');
 }
 
 function renderTaskList(tasks) {
@@ -295,6 +304,10 @@ function bootGoogleAuthWhenReady() {
 
 // ---------- Boot ----------
 document.addEventListener('DOMContentLoaded', () => {
+  // Eerst de eventueel bewaarde inlog terughalen — dit is een pure localStorage-lezing en
+  // heeft niets nodig van Google's externe script, dus dit mag en moet als allereerste.
+  loadStoredGoogleToken();
+
   setupServiceWorker();
   setupNav();
   setupSettings();

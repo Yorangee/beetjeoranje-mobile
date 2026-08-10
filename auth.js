@@ -48,7 +48,10 @@ function isGoogleSignedIn() {
 
 function initGoogleAuth(onTokenReady) {
   if (!isGoogleConfigured()) return;
-  loadStoredGoogleToken();
+  // loadStoredGoogleToken() gebeurt NIET meer hier — dit gebeurt pas zodra het externe
+  // Google-script geladen is, wat op mobiel soms pas ná loadAgenda()'s eerste aanroep was.
+  // Daardoor leek een bestaande, geldige inlog na een pagina-ververs steeds verdwenen.
+  // Zie bootGoogleAuthWhenReady() in app.js, die loadStoredGoogleToken() nu meteen aanroept.
   if (typeof showDebug === 'function') showDebug('Auth', 'Google-inlogclient klaar');
   googleTokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
