@@ -86,6 +86,7 @@ function setupNotes() {
   document.getElementById('noteEditorOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeNoteEditor(); });
   document.getElementById('noteSaveBtn').addEventListener('click', saveNoteFromEditor);
   document.getElementById('noteDeleteBtn').addEventListener('click', deleteNoteFromEditor);
+  setupRichTextToolbar();
 }
 
 // ---------- Sport: knoppen ----------
@@ -99,6 +100,10 @@ function setupSport() {
 function setupZzp() {
   document.getElementById('incomePrevYearBtn').addEventListener('click', () => shiftIncomeYear(-1));
   document.getElementById('incomeNextYearBtn').addEventListener('click', () => shiftIncomeYear(1));
+  document.getElementById('financeRefreshBtn').addEventListener('click', () => {
+    if (!isGoogleSignedIn()) { alert('Log eerst in met Google via instellingen.'); return; }
+    loadInvoicesFromDrive();
+  });
 }
 
 // ---------- Auto: knoppen ----------

@@ -1,6 +1,6 @@
 // Verhoog dit versienummer bij elke deploy — dat forceert een verse cache
 // en triggert de "nieuwe versie beschikbaar" melding in de app.
-const CACHE_NAME = 'beetjeoranje-mobile-v3';
+const CACHE_NAME = 'beetjeoranje-mobile-v4';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -31,7 +31,10 @@ self.addEventListener('activate', (event) => {
 // gewoon rechtstreeks het netwerk op, die worden niet gecachet.
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
-  const isApiCall = url.includes('googleapis.com') || url.includes('api.todoist.com') || url.includes('accounts.google.com');
+  // API-aanroepen én externe CDN-libraries (Chart.js, pdf.js — alleen geladen wanneer
+  // nodig) altijd gewoon rechtstreeks het netwerk op, nooit onderscheppen/cachen hier.
+  const isApiCall = url.includes('googleapis.com') || url.includes('api.todoist.com') || url.includes('accounts.google.com')
+    || url.includes('cdn.jsdelivr.net') || url.includes('cdnjs.cloudflare.com');
   if (isApiCall) return;
 
   const isAppShell = event.request.mode === 'navigate' || /\.(js|css|json|svg)$/.test(url);

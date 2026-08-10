@@ -73,6 +73,7 @@
     <section class="view" data-view="sport">
       <div class="card">
         <h2>Gewicht</h2>
+        <div class="chart-wrap" id="weightChartWrap" style="display:none;"><canvas id="weightChartCanvas" height="160"></canvas></div>
         <div id="weightBody" class="loading">Even ophalen…</div>
       </div>
       <div class="card">
@@ -91,6 +92,20 @@
 
     <!-- ---------- ZZP ---------- -->
     <section class="view" data-view="zzp">
+      <div class="card">
+        <h2>
+          Facturen
+          <button type="button" id="financeRefreshBtn" style="float:right; border:none; background:rgba(242,144,61,0.14); color:var(--orange-dark); font-size:11.5px; font-weight:800; padding:5px 10px; border-radius:8px;">Ververs</button>
+        </h2>
+        <div class="fin-tabs" id="finYearTabs"></div>
+        <div class="fin-tabs" id="finQuarterTabs"></div>
+        <div class="chart-wrap" id="finTrendWrap" style="display:none;"><canvas id="finTrendCanvas" height="140"></canvas></div>
+        <div id="finBody" class="loading">Tik op "Ververs" om je facturen op te halen.</div>
+      </div>
+      <div class="card">
+        <h2>Openstaande facturen</h2>
+        <div id="openInvoicesBody" class="empty">Nog niets geladen.</div>
+      </div>
       <div class="card">
         <h2>BTW-aangifte</h2>
         <div id="btwBody" class="loading">Even ophalen…</div>
@@ -122,13 +137,13 @@
   </main>
 
   <nav class="bottom-nav">
-    <button type="button" class="nav-btn active" data-nav="agenda"><span class="icon">🏠</span>Agenda</button>
-    <button type="button" class="nav-btn" data-nav="taken"><span class="icon">✅</span>Taken</button>
-    <button type="button" class="nav-btn" data-nav="budget"><span class="icon">💶</span>Budget</button>
-    <button type="button" class="nav-btn" data-nav="notities"><span class="icon">📝</span>Notities</button>
-    <button type="button" class="nav-btn" data-nav="sport"><span class="icon">🏋️</span>Sport</button>
-    <button type="button" class="nav-btn" data-nav="zzp"><span class="icon">🧾</span>ZZP</button>
-    <button type="button" class="nav-btn" data-nav="auto"><span class="icon">🚗</span>Auto</button>
+    <button type="button" class="nav-btn active" data-nav="agenda"><span class="icon">🏠</span><span class="label">Agenda</span></button>
+    <button type="button" class="nav-btn" data-nav="taken"><span class="icon">✅</span><span class="label">Taken</span></button>
+    <button type="button" class="nav-btn" data-nav="budget"><span class="icon">💶</span><span class="label">Budget</span></button>
+    <button type="button" class="nav-btn" data-nav="notities"><span class="icon">📝</span><span class="label">Notities</span></button>
+    <button type="button" class="nav-btn" data-nav="sport"><span class="icon">🏋️</span><span class="label">Sport</span></button>
+    <button type="button" class="nav-btn" data-nav="zzp"><span class="icon">🧾</span><span class="label">ZZP</span></button>
+    <button type="button" class="nav-btn" data-nav="auto"><span class="icon">🚗</span><span class="label">Auto</span></button>
   </nav>
 
   <!-- ---------- Instellingen ---------- -->
@@ -150,21 +165,30 @@
 
   <!-- ---------- Notitie bewerken ---------- -->
   <div class="modal-overlay hidden" id="noteEditorOverlay">
-    <div class="modal-sheet">
+    <div class="modal-sheet note-editor-sheet">
       <button type="button" class="modal-close" id="noteEditorCloseBtn">✕</button>
       <h3>Notitie</h3>
       <div class="modal-field">
-        <label for="noteTitleInput">Titel</label>
-        <input type="text" id="noteTitleInput" placeholder="Titel">
+        <input type="text" id="noteTitleInput" placeholder="Titel" style="font-weight:800; font-size:15px;">
       </div>
       <div class="modal-field">
-        <label for="noteCategorySelect">Categorie</label>
         <select id="noteCategorySelect"></select>
       </div>
-      <div class="modal-field">
-        <label for="noteBodyInput">Inhoud</label>
-        <textarea id="noteBodyInput" rows="6" placeholder="Schrijf hier je notitie..."></textarea>
+      <div class="rte-toolbar" id="rteToolbar">
+        <select class="rte-select" id="rteSizeSelect" title="Tekstgrootte">
+          <option value="2">Klein</option>
+          <option value="3" selected>Normaal</option>
+          <option value="4">Groot</option>
+          <option value="5">Extra groot</option>
+          <option value="6">Kop</option>
+        </select>
+        <button type="button" class="rte-btn" id="rteBoldBtn" title="Vet"><b>V</b></button>
+        <button type="button" class="rte-btn" id="rteItalicBtn" title="Cursief"><i>C</i></button>
+        <button type="button" class="rte-btn" id="rteUnderlineBtn" title="Onderstrepen"><u>O</u></button>
+        <button type="button" class="rte-btn rte-color-btn" id="rteColorBtn" title="Tekstkleur">A</button>
+        <input type="color" id="rteColorInput" class="rte-color-input" value="#2B2016">
       </div>
+      <div class="note-editor-body" id="noteBodyInput" contenteditable="true" data-placeholder="Schrijf hier je notitie…"></div>
       <button type="button" class="btn-primary" id="noteSaveBtn">Opslaan</button>
       <button type="button" class="btn-secondary" id="noteDeleteBtn" style="color:var(--danger);">Verwijderen</button>
     </div>
@@ -189,6 +213,7 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <script src="https://accounts.google.com/gsi/client" async defer id="gsiScript"></script>
 <script src="auth.js"></script>
 <script src="data.js"></script>

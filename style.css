@@ -106,7 +106,7 @@ main {
 .bottom-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
   display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   background: linear-gradient(0deg, #FFFBF4 0%, rgba(255,251,244,0.96) 100%);
   border-top: 1px solid var(--border-soft);
   box-shadow: 0 -6px 18px rgba(60,30,0,0.10);
@@ -114,13 +114,25 @@ main {
 }
 .bottom-nav::-webkit-scrollbar { display: none; }
 .nav-btn {
-  flex: 1 0 auto; min-width: 64px; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  border: none; background: none; cursor: pointer; padding: 6px 8px; border-radius: 12px;
-  color: var(--muted); font-size: 10.5px; font-weight: 800; white-space: nowrap;
+  flex: 1 1 0; min-width: 44px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  border: none; background: none; cursor: pointer; padding: 6px 2px; border-radius: 10px;
+  color: var(--muted); font-size: 9px; font-weight: 800; white-space: nowrap;
   transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
-.nav-btn .icon { font-size: 19px; line-height: 1; }
+.nav-btn .icon { font-size: 17px; line-height: 1; }
 .nav-btn.active { color: var(--orange-dark); background: rgba(242,144,61,0.14); }
+
+/* 7 tabbladen moeten zonder scrollen passen op een normaal telefoonscherm (≥360px).
+   Op erg smalle schermen valt de tekst onder de iconen weg zodat alleen de iconen
+   overblijven — nog steeds aantikbaar, alleen compacter. */
+@media (max-width: 400px) {
+  .nav-btn { font-size: 8px; padding: 6px 1px; }
+  .nav-btn .icon { font-size: 16px; }
+}
+@media (max-width: 360px) {
+  .nav-btn .label { display: none; }
+  .nav-btn .icon { font-size: 20px; }
+}
 
 /* ---------- Settings modal ---------- */
 .modal-overlay {
@@ -189,6 +201,17 @@ main {
 .budget-item-check { flex: none; width: 16px; height: 16px; accent-color: var(--orange); }
 .budget-item-del { flex: none; color: var(--muted); font-size: 12px; padding: 0 2px; cursor: pointer; }
 .budget-cat-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; margin: 8px 0 2px; }
+.budget-cat-group { margin: 6px 0; }
+.budget-cat-head {
+  display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 4px 0;
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.budget-cat-toggle { display: inline-block; transition: transform 0.15s var(--ease); font-size: 10px; }
+.budget-cat-toggle.collapsed { transform: rotate(-90deg); }
+.budget-cat-name { flex: 1; }
+.budget-cat-total { font-weight: 700; opacity: 0.8; }
+.budget-cat-items { max-height: 800px; overflow: hidden; transition: max-height 0.2s var(--ease); }
+.budget-cat-items.collapsed { max-height: 0; }
 .budget-envelope-pct, .budget-envelope-target { font-weight: 600; color: var(--muted); font-size: 11px; }
 .budget-envelope-head .over { color: var(--danger); }
 .budget-progress-track { height: 5px; border-radius: 3px; background: rgba(43,32,22,0.08); margin: 6px 0 4px; overflow: hidden; }
@@ -198,6 +221,31 @@ main {
   border: none; background: none; color: var(--orange-dark); font-size: 12px; font-weight: 800;
   padding: 6px 0 0; cursor: pointer;
 }
+
+/* ---------- Notitie-editor (rich text) ---------- */
+.note-editor-sheet { max-height: 88vh; overflow-y: auto; }
+.rte-toolbar {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  padding: 6px; margin-bottom: 8px; border: 1px solid var(--border-soft); border-radius: 10px; background: #fff;
+}
+.rte-select {
+  border: 1px solid var(--border-soft); border-radius: 8px; padding: 5px 6px; font-size: 12px;
+  font-family: inherit; background: #fff; color: var(--ink);
+}
+.rte-btn {
+  border: 1px solid var(--border-soft); border-radius: 8px; width: 30px; height: 30px;
+  background: #fff; color: var(--ink); font-size: 13px; cursor: pointer;
+}
+.rte-btn.active { background: rgba(242,144,61,0.18); border-color: var(--orange); color: var(--orange-dark); }
+.rte-color-input { width: 26px; height: 26px; border: none; padding: 0; background: none; }
+.note-editor-body {
+  min-height: 160px; max-height: 40vh; overflow-y: auto;
+  border: 1px solid var(--border-soft); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px;
+  font-size: 14px; line-height: 1.55; color: var(--ink); background: #fff;
+}
+.note-editor-body:empty::before { content: attr(data-placeholder); color: var(--muted); }
+.note-editor-body b, .note-editor-body strong { font-weight: 800; }
+.note-editor-body a { color: var(--orange-dark); }
 
 /* ---------- Notities ---------- */
 .note-row {
@@ -259,6 +307,41 @@ main {
   width: 100%; border: none; background: none; font-size: 11px; color: var(--muted); font-weight: 700;
   font-family: inherit; padding: 4px 0 0;
 }
+
+/* ---------- Grafieken ---------- */
+.chart-wrap { position: relative; height: 160px; margin-bottom: 10px; }
+
+/* ---------- ZZP: Facturen ---------- */
+.fin-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 8px; scrollbar-width: none; }
+.fin-tabs::-webkit-scrollbar { display: none; }
+.fin-tab {
+  flex: none; border: 1px solid var(--border-soft); border-radius: 8px; padding: 5px 11px;
+  font-size: 11.5px; font-weight: 800; background: #fff; color: var(--muted); cursor: pointer; white-space: nowrap;
+}
+.fin-tab.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+.fin-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.fin-stat { background: rgba(242,144,61,0.08); border-radius: 10px; padding: 8px 10px; }
+.fin-stat .fin-stat-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+.fin-stat .fin-stat-value { font-size: 14px; font-weight: 800; color: var(--ink); margin-top: 2px; }
+.fin-invoice-row {
+  display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--border-soft); font-size: 12.5px;
+}
+.fin-invoice-row:last-child { border-bottom: none; }
+.fin-invoice-row .fi-client { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fin-invoice-row .fi-nr { font-size: 10.5px; color: var(--muted); font-weight: 700; display: block; }
+.fin-invoice-row .fi-amt { flex: none; font-weight: 800; }
+.fin-open-row {
+  display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--border-soft); font-size: 12.5px;
+}
+.fin-open-row:last-child { border-bottom: none; }
+.fin-open-row .fo-days { flex: none; font-size: 10.5px; font-weight: 800; color: var(--muted); }
+.fin-open-row .fo-days.warn { color: #9A7A0F; }
+.fin-open-row .fo-days.danger { color: var(--danger); }
+.fin-paid-btn {
+  flex: none; border: none; border-radius: 8px; padding: 5px 9px; font-size: 10.5px; font-weight: 800;
+  background: rgba(46,125,79,0.14); color: #2E7D4F; cursor: pointer;
+}
+.fin-progress { font-size: 12px; color: var(--muted); font-weight: 700; padding: 6px 0; }
 
 /* ---------- ZZP ---------- */
 .btw-row {

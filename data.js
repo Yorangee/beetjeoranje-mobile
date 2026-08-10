@@ -156,11 +156,67 @@ function htmlToPlainText(html) {
   tmp.innerHTML = html;
   return (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim();
 }
-function linkify(text) {
-  return esc(text).replace(/\n/g, '<br>').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+
+// Zelfde opschoning als desktop: verboden tags/event-attributen eruit, maar verder de
+// opmaak (bold/italic/underline/kleur/lettergrootte) intact laten.
+function sanitizeHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  tmp.querySelectorAll('script,style,iframe,object,embed').forEach((el) => el.remove());
+  tmp.querySelectorAll('*').forEach((el) => {
+    [...el.attributes].forEach((attr) => {
+      if (/^on/i.test(attr.name) || attr.name === 'srcdoc') el.removeAttribute(attr.name);
+    });
+  });
+  return tmp.innerHTML;
+}
+
+// Zet losse URL's in de tekst om in klikbare links — zelfde aanpak als desktop
+// (loopt over de DOM i.p.v. ruwe regex op HTML, zodat bestaande links niet geraakt worden).
+const NOTE_URL_PATTERN = /((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
+function linkifyNode(node) {
+  Array.from(node.childNodes).forEach((child) => {
+    if (child.nodeType === Node.TEXT_NODE) {
+      const text = child.textContent;
+      NOTE_URL_PATTERN.lastIndex = 0;
+      if (!NOTE_URL_PATTERN.test(text)) return;
+      NOTE_URL_PATTERN.lastIndex = 0;
+      const frag = document.createDocumentFragment();
+      let lastIndex = 0, match;
+      while ((match = NOTE_URL_PATTERN.exec(text))) {
+        if (match.index > lastIndex) frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        let url = match[1];
+        let trail = '';
+        while (url && /[).,;:!?]$/.test(url)) { trail = url.slice(-1) + trail; url = url.slice(0, -1); }
+        if (!url) { frag.appendChild(document.createTextNode(match[0])); lastIndex = match.index + match[0].length; continue; }
+        const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+        const a = document.createElement('a');
+        a.setAttribute('href', href);
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+        a.textContent = url;
+        frag.appendChild(a);
+        if (trail) frag.appendChild(document.createTextNode(trail));
+        lastIndex = match.index + match[0].length;
+      }
+      if (lastIndex < text.length) frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+      node.replaceChild(frag, child);
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      if (child.tagName === 'A' || child.tagName === 'SCRIPT' || child.tagName === 'STYLE') return;
+      linkifyNode(child);
+    }
+  });
+}
+function linkifyPlainUrls(html) {
+  if (!html) return html;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  linkifyNode(tmp);
+  return tmp.innerHTML;
 }
 
 let editingNoteId = null;
+let noteSavedRange = null;
 
 function openNoteEditor(id) {
   const notes = getNotes();
@@ -173,7 +229,7 @@ function openNoteEditor(id) {
 
   document.getElementById('noteTitleInput').value = note ? (note.title || '') : '';
   sel.value = note ? (note.category || cats[0]) : cats[0];
-  document.getElementById('noteBodyInput').value = note ? htmlToPlainText(note.contentHTML || '') : '';
+  document.getElementById('noteBodyInput').innerHTML = note ? (note.contentHTML || '') : '';
   document.getElementById('noteDeleteBtn').style.display = note ? '' : 'none';
   document.getElementById('noteEditorOverlay').classList.remove('hidden');
 }
@@ -181,13 +237,16 @@ function openNoteEditor(id) {
 function closeNoteEditor() {
   document.getElementById('noteEditorOverlay').classList.add('hidden');
   editingNoteId = null;
+  noteSavedRange = null;
 }
 
 function saveNoteFromEditor() {
   const title = document.getElementById('noteTitleInput').value.trim();
   const category = document.getElementById('noteCategorySelect').value;
-  const bodyText = document.getElementById('noteBodyInput').value;
-  if (!title && !bodyText.trim()) { closeNoteEditor(); return; }
+  const bodyEl = document.getElementById('noteBodyInput');
+  const contentHTML = linkifyPlainUrls(sanitizeHtml(bodyEl.innerHTML));
+  const plain = htmlToPlainText(contentHTML);
+  if (!title && !plain) { closeNoteEditor(); return; }
 
   const notes = getNotes();
   const now = Date.now();
@@ -196,11 +255,12 @@ function saveNoteFromEditor() {
     if (idx !== -1) {
       notes[idx].title = title;
       notes[idx].category = category;
-      notes[idx].contentHTML = linkify(bodyText);
+      notes[idx].contentHTML = contentHTML;
+      notes[idx].content = plain;
       notes[idx].updatedAt = now;
     }
   } else {
-    notes.unshift({ id: genId('n'), title, category, contentHTML: linkify(bodyText), createdAt: now, updatedAt: now });
+    notes.unshift({ id: genId('n'), title, category, contentHTML, content: plain, createdAt: now, updatedAt: now });
   }
   saveNotes(notes);
   closeNoteEditor();
@@ -214,6 +274,56 @@ function deleteNoteFromEditor() {
   saveNotes(notes);
   closeNoteEditor();
   renderNotesView();
+}
+
+// ---------- Rich-text-opmaakbalk ----------
+// Gebruikt document.execCommand — verouderd maar nog overal (incl. mobiele browsers)
+// ondersteund, en precies wat het desktop-dashboard ook gebruikt, zodat de opgeslagen
+// HTML tussen beide versies compatibel blijft.
+function setupRichTextToolbar() {
+  const body = document.getElementById('noteBodyInput');
+
+  function saveSel() {
+    const sel = window.getSelection();
+    if (sel.rangeCount && body.contains(sel.anchorNode)) noteSavedRange = sel.getRangeAt(0).cloneRange();
+  }
+  function restoreSel() {
+    body.focus();
+    if (noteSavedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(noteSavedRange);
+    }
+  }
+  body.addEventListener('mouseup', saveSel);
+  body.addEventListener('keyup', saveSel);
+  body.addEventListener('touchend', saveSel);
+  body.addEventListener('focus', saveSel);
+
+  function doCommand(command) {
+    restoreSel();
+    document.execCommand(command, false, null);
+    saveSel();
+  }
+
+  document.getElementById('rteBoldBtn').addEventListener('click', () => doCommand('bold'));
+  document.getElementById('rteItalicBtn').addEventListener('click', () => doCommand('italic'));
+  document.getElementById('rteUnderlineBtn').addEventListener('click', () => doCommand('underline'));
+
+  document.getElementById('rteSizeSelect').addEventListener('change', (e) => {
+    restoreSel();
+    document.execCommand('fontSize', false, e.target.value);
+    saveSel();
+  });
+
+  const colorBtn = document.getElementById('rteColorBtn');
+  const colorInput = document.getElementById('rteColorInput');
+  colorBtn.addEventListener('click', () => { saveSel(); colorInput.click(); });
+  colorInput.addEventListener('input', (e) => {
+    restoreSel();
+    document.execCommand('foreColor', false, e.target.value);
+    saveSel();
+  });
 }
 
 // ---------- Budget ----------
@@ -298,8 +408,17 @@ function budgetEnvelopeBodyHtml(cat, monthData) {
   const groupsHtml = categories.map((c) => {
     const catItems = items.filter((it) => it.categoryId === c.id);
     if (!catItems.length) return '';
-    return `<div class="budget-cat-label" style="color:${esc(c.color || 'var(--orange-dark)')}">${esc(c.name)}</div>` +
-      catItems.map((it) => budgetItemRowHtml(cat, it)).join('');
+    const collapsed = !!c.collapsed;
+    const total = catItems.reduce((s, it) => s + it.amount, 0);
+    return `
+      <div class="budget-cat-group" data-cat-id="${esc(c.id)}" data-cat="${cat}">
+        <div class="budget-cat-head" style="color:${esc(c.color || 'var(--orange-dark)')}">
+          <span class="budget-cat-toggle${collapsed ? ' collapsed' : ''}" data-cat="${cat}" data-cat-id="${esc(c.id)}">▾</span>
+          <span class="budget-cat-name">${esc(c.name)}</span>
+          <span class="budget-cat-total">${eurFmt(total)}</span>
+        </div>
+        <div class="budget-cat-items${collapsed ? ' collapsed' : ''}">${catItems.map((it) => budgetItemRowHtml(cat, it)).join('')}</div>
+      </div>`;
   }).join('');
   const uncategorized = items.filter((it) => !it.categoryId || !catIds.has(it.categoryId));
   const uncatHtml = uncategorized.length ? uncategorized.map((it) => budgetItemRowHtml(cat, it)).join('') : '';
@@ -356,6 +475,18 @@ function renderBudgetView() {
       const id = del.getAttribute('data-id');
       const monthData2 = getBudgetMonth(budgetActiveMonthKey);
       monthData2.items[cat] = (monthData2.items[cat] || []).filter((it) => it.id !== id);
+      saveBudgetMonth(budgetActiveMonthKey, monthData2);
+      renderBudgetView();
+    });
+  });
+  el.querySelectorAll('.budget-cat-toggle').forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+      const cat = toggle.getAttribute('data-cat');
+      const catId = toggle.getAttribute('data-cat-id');
+      const monthData2 = getBudgetMonth(budgetActiveMonthKey);
+      const category = (monthData2.categories[cat] || []).find((c) => c.id === catId);
+      if (!category) return;
+      category.collapsed = !category.collapsed;
       saveBudgetMonth(budgetActiveMonthKey, monthData2);
       renderBudgetView();
     });
@@ -470,6 +601,7 @@ function renderWeightBody() {
     : '<div class="empty">Nog geen gewicht ingevuld.</div>';
 
   el.innerHTML = addRowHtml + rowsHtml;
+  renderWeightChart(log);
 
   const addBtn = document.getElementById('weightAddBtn');
   if (addBtn) {
@@ -850,4 +982,326 @@ function openCarVisitModal() {
   list.push({ id: genId('visit'), date, garage, omschrijving, km: '', kosten });
   saveCarVisitsList(list);
   renderCarVisitsBody();
+}
+
+// ================= ZZP: FACTUREN (Drive-map met PDF's, net als desktop) =================
+// Desktop leest facturen niet uit het gedeelde JSON-bestand maar leest ze live uit een
+// Drive-map vol PDF's (submap per kwartaal) en parseert bestandsnaam + PDF-inhoud met
+// regex. Mobiel doet exact hetzelfde via de Drive v3 REST API, met pdf.js (lazy geladen
+// vanaf een CDN, alleen wanneer deze kaart daadwerkelijk geopend wordt) voor de
+// tekst-extractie uit de PDF's zelf.
+const FACTUREN_FOLDER_ID = '1hkIVdq-x2gQ_CXlVDhlExXsSaa6q9cNV';
+const PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.2.108/';
+let pdfjsLibPromise = null;
+function ensurePdfJs() {
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = import(PDFJS_BASE + 'pdf.min.mjs').then((mod) => {
+      mod.GlobalWorkerOptions.workerSrc = PDFJS_BASE + 'pdf.worker.min.mjs';
+      return mod;
+    });
+  }
+  return pdfjsLibPromise;
+}
+
+async function driveListChildren(folderId) {
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+  const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=' + encodeURIComponent('files(id,name,mimeType)') + '&pageSize=200', {
+    headers: { Authorization: 'Bearer ' + googleAccessToken }
+  });
+  if (!res.ok) throw new Error('Drive-map ophalen mislukt (' + res.status + ')');
+  const data = await res.json();
+  return data.files || [];
+}
+
+async function extractPdfText(fileId) {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media', {
+    headers: { Authorization: 'Bearer ' + googleAccessToken }
+  });
+  if (!res.ok) throw new Error('PDF ophalen mislukt (' + res.status + ')');
+  const buf = await res.arrayBuffer();
+  const pdfjsLib = await ensurePdfJs();
+  const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for (let i = 1; i <= Math.min(doc.numPages, 2); i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map((it) => it.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+function parseAmount(str) {
+  if (!str) return 0;
+  const cleaned = String(str).replace(/\./g, '').replace(',', '.');
+  const v = parseFloat(cleaned);
+  return isNaN(v) ? 0 : v;
+}
+function extractYear(str) {
+  const m = String(str || '').match(/\b(20\d{2})\b/);
+  return m ? m[1] : null;
+}
+
+// Zelfde regex-logica als parseInvoice() op desktop: bestandsnaam heeft voorrang voor
+// factuurnummer/klant, de rest (datum, bedragen) komt altijd uit de PDF-tekst.
+function parseInvoiceMobile(file, quarterLabel, text) {
+  const title = file.name || '';
+  const fnMatch = title.match(/Factuur_(.+?)_(.+)\.pdf$/i);
+  const invoiceNumber = fnMatch ? fnMatch[1] : ((text.match(/Factuurnummer:\s*([\w-]+)/i) || [])[1] || '—');
+  const client = fnMatch ? fnMatch[2].replace(/_/g, ' ').trim() : ((text.match(/Factuur voor:\s*([^\n]+)/i) || [])[1] || 'Onbekend');
+  const dateMatch = text.match(/(?:Factuurdatum|Datum):\s*([\d./-]+)/i);
+  const exclMatch = text.match(/Totaal\s*excl\.?\s*BTW:?\s*€?\s*([\d.,]+)/i);
+  const btwMatch = text.match(/BTW\s*\d{1,2}%:?\s*€?\s*([\d.,]+)/i);
+  const totalMatch = text.match(/\bTotaal:\s*€?\s*([\d.,]+)/i);
+
+  const excl = parseAmount(exclMatch && exclMatch[1]);
+  const btw = parseAmount(btwMatch && btwMatch[1]);
+  const total = totalMatch ? parseAmount(totalMatch[1]) : (excl + btw);
+
+  let qLabel = quarterLabel || '';
+  const qm = qLabel.match(/Kwartaal\s*(\d)/i);
+  if (qm) qLabel = 'Q' + qm[1];
+
+  const dateStr = (dateMatch && dateMatch[1]) || '—';
+  const year = extractYear(dateStr) || extractYear(quarterLabel) || extractYear(title) || String(new Date().getFullYear());
+
+  return { id: file.id, fileName: title, invoiceNumber, client, date: dateStr, year, excl, btw, total, quarter: qLabel };
+}
+
+// Simpele concurrency-pool zodat niet alle PDF's tegelijk (kan traag/zwaar zijn op
+// mobiel netwerk) maar ook niet strikt na elkaar (te langzaam) worden opgehaald.
+async function runWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function runOne() {
+    while (next < items.length) {
+      const idx = next++;
+      results[idx] = await worker(items[idx], idx);
+    }
+  }
+  await Promise.all(new Array(Math.min(limit, items.length)).fill(0).map(runOne));
+  return results;
+}
+
+let financeInvoicesCache = [];
+let financeLoaded = false;
+let financeLoading = false;
+let financeActiveYear = String(new Date().getFullYear());
+let financeActiveQuarter = 'all';
+let financeChart = null;
+
+async function loadInvoicesFromDrive() {
+  if (financeLoading) return;
+  financeLoading = true;
+  const el = document.getElementById('finBody');
+  el.className = '';
+  el.innerHTML = '<div class="fin-progress">Facturen-map inlezen…</div>';
+  try {
+    // Zorgt dat het gedeelde Drive-bestand al geladen is voordat we straks eventueel de
+    // betaald-status van een factuur opslaan — anders zou setSharedKey() bij een nog lege
+    // sharedData per ongeluk al je andere data (notities/budget/etc.) overschrijven.
+    await ensureSharedData();
+    const subfolders = (await driveListChildren(FACTUREN_FOLDER_ID)).filter((f) => f.mimeType === 'application/vnd.google-apps.folder');
+    const perFolder = await Promise.all(subfolders.map(async (folder) => {
+      const files = (await driveListChildren(folder.id)).filter((f) => f.mimeType === 'application/pdf');
+      return files.map((f) => ({ file: f, quarterLabel: folder.name }));
+    }));
+    const allPdfs = perFolder.flat();
+
+    if (allPdfs.length === 0) {
+      financeInvoicesCache = [];
+      financeLoaded = true;
+      renderFinanceYearTabs();
+      renderFinanceQuarterTabs();
+      renderFinanceBody();
+      renderOpenInvoicesBody();
+      financeLoading = false;
+      return;
+    }
+
+    let done = 0;
+    const invoices = await runWithConcurrency(allPdfs, 4, async ({ file, quarterLabel }) => {
+      try {
+        const text = await extractPdfText(file.id);
+        done++;
+        el.innerHTML = `<div class="fin-progress">Facturen verwerken… (${done}/${allPdfs.length})</div>`;
+        return parseInvoiceMobile(file, quarterLabel, text);
+      } catch (e) {
+        done++;
+        console.error('kon factuur niet lezen', file.name, e);
+        return null;
+      }
+    });
+
+    financeInvoicesCache = invoices.filter(Boolean);
+    financeLoaded = true;
+    renderFinanceYearTabs();
+    renderFinanceQuarterTabs();
+    renderFinanceBody();
+    renderOpenInvoicesBody();
+  } catch (e) {
+    console.error(e);
+    el.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
+    showDebug('Facturen-fout', e.message || String(e));
+  }
+  financeLoading = false;
+}
+
+function renderFinanceYearTabs() {
+  const el = document.getElementById('finYearTabs');
+  const years = Array.from(new Set(financeInvoicesCache.map((i) => i.year))).sort();
+  if (!years.includes(financeActiveYear) && years.length) financeActiveYear = years[years.length - 1];
+  el.innerHTML = years.map((y) => `<button type="button" class="fin-tab${y === financeActiveYear ? ' active' : ''}" data-year="${esc(y)}">${esc(y)}</button>`).join('');
+  el.querySelectorAll('.fin-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      financeActiveYear = btn.getAttribute('data-year');
+      renderFinanceYearTabs();
+      renderFinanceQuarterTabs();
+      renderFinanceBody();
+    });
+  });
+}
+
+function renderFinanceQuarterTabs() {
+  const el = document.getElementById('finQuarterTabs');
+  const options = [['all', 'Alle kwartalen'], ['Q1', 'Q1'], ['Q2', 'Q2'], ['Q3', 'Q3'], ['Q4', 'Q4']];
+  el.innerHTML = options.map(([q, label]) => `<button type="button" class="fin-tab${q === financeActiveQuarter ? ' active' : ''}" data-q="${q}">${esc(label)}</button>`).join('');
+  el.querySelectorAll('.fin-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      financeActiveQuarter = btn.getAttribute('data-q');
+      renderFinanceQuarterTabs();
+      renderFinanceBody();
+    });
+  });
+}
+
+function renderFinanceBody() {
+  const el = document.getElementById('finBody');
+  el.className = '';
+  if (financeInvoicesCache.length === 0) {
+    el.innerHTML = '<div class="empty">Geen facturen gevonden in de Facturen-map.</div>';
+    renderFinanceTrendChart();
+    return;
+  }
+  const invoices = financeInvoicesCache
+    .filter((i) => i.year === financeActiveYear)
+    .filter((i) => financeActiveQuarter === 'all' || i.quarter === financeActiveQuarter)
+    .sort((a, b) => (a.quarter + a.invoiceNumber).localeCompare(b.quarter + b.invoiceNumber));
+
+  if (invoices.length === 0) {
+    el.innerHTML = `<div class="empty">Geen facturen voor ${esc(financeActiveYear)}${financeActiveQuarter === 'all' ? '' : ' ' + esc(financeActiveQuarter)}.</div>`;
+    renderFinanceTrendChart();
+    return;
+  }
+
+  const omzetExcl = invoices.reduce((s, i) => s + i.excl, 0);
+  const btwTotal = invoices.reduce((s, i) => s + i.btw, 0);
+  const reservering = omzetExcl * 0.3;
+  const zvw = omzetExcl * 0.05;
+  const netto = omzetExcl - reservering - zvw;
+
+  const statsHtml = `
+    <div class="fin-stat-row">
+      <div class="fin-stat"><div class="fin-stat-label">Omzet excl. btw</div><div class="fin-stat-value">${eurFmt(omzetExcl)}</div></div>
+      <div class="fin-stat"><div class="fin-stat-label">Btw af te dragen</div><div class="fin-stat-value">${eurFmt(btwTotal)}</div></div>
+      <div class="fin-stat"><div class="fin-stat-label">Reservering 30%</div><div class="fin-stat-value">${eurFmt(reservering)}</div></div>
+      <div class="fin-stat"><div class="fin-stat-label">Netto over</div><div class="fin-stat-value">${eurFmt(netto)}</div></div>
+    </div>`;
+
+  const rowsHtml = invoices.map((i) => `
+    <div class="fin-invoice-row">
+      <span class="fi-client">${esc(i.client)}<span class="fi-nr">#${esc(i.invoiceNumber)} · ${esc(i.quarter)}</span></span>
+      <span class="fi-amt">${eurFmt(i.total)}</span>
+    </div>`).join('');
+
+  el.innerHTML = statsHtml + rowsHtml;
+  renderFinanceTrendChart();
+}
+
+function renderFinanceTrendChart() {
+  const wrap = document.getElementById('finTrendWrap');
+  const canvas = document.getElementById('finTrendCanvas');
+  if (typeof Chart === 'undefined' || financeInvoicesCache.length === 0) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const buckets = {};
+  financeInvoicesCache.forEach((inv) => {
+    const key = inv.year + '-' + inv.quarter;
+    if (!buckets[key]) buckets[key] = { year: inv.year, quarter: inv.quarter, total: 0 };
+    buckets[key].total += inv.excl;
+  });
+  const sorted = Object.values(buckets).sort((a, b) => (a.year + a.quarter).localeCompare(b.year + b.quarter));
+  const labels = sorted.map((b) => b.quarter + ' ’' + String(b.year).slice(2));
+  const values = sorted.map((b) => Math.round(b.total));
+
+  if (financeChart) { financeChart.data.labels = labels; financeChart.data.datasets[0].data = values; financeChart.update(); return; }
+  financeChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Omzet excl. btw', data: values, borderColor: '#E08A3C', backgroundColor: 'rgba(224,138,60,0.15)', borderWidth: 3, pointRadius: 3, pointBackgroundColor: '#C85A1D', tension: 0.3, fill: true }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: (v) => '€' + v } }, x: { grid: { display: false } } } }
+  });
+}
+
+function getInvoiceStatusMap() { return getSharedKey(INVOICE_STATUS_KEY, {}); }
+function saveInvoiceStatusMap(m) { setSharedKey(INVOICE_STATUS_KEY, m); }
+
+function renderOpenInvoicesBody() {
+  const el = document.getElementById('openInvoicesBody');
+  const status = getInvoiceStatusMap();
+  const open = financeInvoicesCache.filter((inv) => !status[inv.id]);
+  if (open.length === 0) {
+    el.innerHTML = financeInvoicesCache.length ? '<div class="empty">Alles is betaald — geen openstaande facturen. 🎉</div>' : '<div class="empty">Nog niets geladen.</div>';
+    return;
+  }
+  const today = new Date();
+  const withDays = open.map((inv) => {
+    const d = parseInvoiceDateObjMobile(inv.date);
+    const daysOpen = d ? Math.round((today - d) / 86400000) : null;
+    return { inv, daysOpen };
+  }).sort((a, b) => (b.daysOpen || 0) - (a.daysOpen || 0));
+
+  el.innerHTML = withDays.map(({ inv, daysOpen }) => {
+    const cls = daysOpen === null ? '' : (daysOpen >= 60 ? 'danger' : (daysOpen >= 30 ? 'warn' : ''));
+    const label = daysOpen === null ? '—' : (daysOpen + ' dag' + (daysOpen === 1 ? '' : 'en'));
+    return `<div class="fin-open-row">
+      <span class="fi-client">${esc(inv.client)}<span class="fi-nr">#${esc(inv.invoiceNumber)} · ${eurFmt(inv.total)}</span></span>
+      <span class="fo-days ${cls}">${esc(label)}</span>
+      <button type="button" class="fin-paid-btn" data-id="${esc(inv.id)}">Betaald</button>
+    </div>`;
+  }).join('');
+
+  el.querySelectorAll('.fin-paid-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const s = getInvoiceStatusMap();
+      s[btn.getAttribute('data-id')] = true;
+      saveInvoiceStatusMap(s);
+      renderOpenInvoicesBody();
+    });
+  });
+}
+
+function parseInvoiceDateObjMobile(dateStr) {
+  const s = dateStr || '';
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (m) return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (m) return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+  return null;
+}
+
+// ================= SPORT: gewichtgrafiek (Chart.js) =================
+let weightChart = null;
+function renderWeightChart(log) {
+  const wrap = document.getElementById('weightChartWrap');
+  const canvas = document.getElementById('weightChartCanvas');
+  if (typeof Chart === 'undefined' || log.length < 2) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const sorted = log.slice().sort((a, b) => a.week.localeCompare(b.week));
+  const labels = sorted.map((e) => { const d = new Date(e.week + 'T00:00:00'); return d.getDate() + ' ' + MONTH_NAMES_NL[d.getMonth()]; });
+  const values = sorted.map((e) => e.weight);
+
+  if (weightChart) { weightChart.data.labels = labels; weightChart.data.datasets[0].data = values; weightChart.update(); return; }
+  weightChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Gewicht (kg)', data: values, borderColor: '#E08A3C', backgroundColor: 'rgba(224,138,60,0.15)', borderWidth: 3, pointRadius: 3, pointBackgroundColor: '#C85A1D', tension: 0.3, fill: true }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: (v) => v + ' kg' } }, x: { grid: { display: false } } } }
+  });
 }
