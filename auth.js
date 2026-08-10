@@ -74,16 +74,54 @@ function signInGoogle() {
   googleTokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
-function ensureGoogleToken(onReady) {
-  if (isGoogleSignedIn()) { onReady(); return; }
-  if (!googleTokenClient) return;
-  googleTokenClient.callback = (resp) => {
-    if (resp && resp.access_token) {
-      storeGoogleToken(resp.access_token, resp.expires_in || 3600);
-      onReady();
+// Probeert een verlopen token STILLETJES (geen popup, geen inlogscherm) te vernieuwen
+// via Google's eigen sessie in de browser — dit is precies wat er nodig is om niet
+// steeds opnieuw handmatig te hoeven inloggen na ±1 uur (de standaard geldigheidsduur
+// van een Google-toegangstoken). Lukt dit niet (bijv. omdat de browser third-party
+// cookies naar accounts.google.com blokkeert, wat op met name Safari/iOS kan gebeuren),
+// dan valt het simpelweg terug op de normale "Inloggen met Google"-knop.
+let silentRefreshInFlight = null;
+function requestGoogleTokenSilently(timeoutMs) {
+  if (silentRefreshInFlight) return silentRefreshInFlight;
+  silentRefreshInFlight = new Promise((resolve) => {
+    if (!googleTokenClient) { resolve(false); return; }
+    let done = false;
+    const originalCallback = googleTokenClient.callback;
+    const originalErrorCallback = googleTokenClient.error_callback;
+    const finish = (success) => {
+      if (done) return;
+      done = true;
+      googleTokenClient.callback = originalCallback;
+      googleTokenClient.error_callback = originalErrorCallback;
+      resolve(success);
+    };
+    googleTokenClient.callback = (resp) => {
+      if (resp && resp.access_token) {
+        storeGoogleToken(resp.access_token, resp.expires_in || 3600);
+        finish(true);
+      } else {
+        finish(false);
+      }
+    };
+    googleTokenClient.error_callback = () => finish(false);
+    setTimeout(() => finish(false), timeoutMs || 6000);
+    try {
+      googleTokenClient.requestAccessToken({ prompt: '' });
+    } catch (e) {
+      finish(false);
     }
-  };
-  googleTokenClient.requestAccessToken({ prompt: '' }); // probeer stil te verversen
+  }).finally(() => { silentRefreshInFlight = null; });
+  return silentRefreshInFlight;
+}
+
+// Zorgt dat er een geldig token is vóór een API-aanroep: als het huidige token nog goed
+// is, meteen door; anders eerst een stille vernieuwingspoging, en pas als die ook
+// mislukt geeft dit `false` terug (waarna de aanroepende code de gewone "log in"-melding
+// toont, zoals voorheen).
+async function ensureFreshGoogleToken() {
+  if (isGoogleSignedIn()) return true;
+  if (!isGoogleConfigured() || !googleTokenClient) return false;
+  return await requestGoogleTokenSilently();
 }
 
 // ---------- Todoist ----------

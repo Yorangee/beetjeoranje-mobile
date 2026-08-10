@@ -1090,15 +1090,47 @@ async function extractPdfText(fileId, fileName) {
     try {
       const page = await doc.getPage(i);
       const content = await page.getTextContent();
-      text += content.items.map((it) => it.str).join(' ') + '\n';
+      text += pdfTextItemsToString(content.items) + '\n';
     } catch (e) { throw new Error(describeError(e, 'pagina ' + i + ' lezen ' + fileName)); }
   }
   return text;
 }
 
+// Tekst-items van pdf.js gewoon met een spatie aan elkaar plakken (zoals eerst) knipt
+// getallen soms stuk: sommige PDF-generators (vooral facturen met keurig uitgelijnde
+// bedragen) plaatsen elk cijfer als los tekst-"item" op zijn eigen positie. Een simpele
+// join(' ') zet dan bijvoorbeeld "605" om in "6 0 5", waarna de bedrag-regex alleen het
+// eerste cijfer meepakt. Deze functie voegt alleen een spatie toe als er ook echt een
+// merkbaar gat tussen twee items zit (nieuw woord/kolom), anders plakt hij ze aan elkaar.
+function pdfTextItemsToString(items) {
+  let out = '';
+  let prev = null;
+  for (const item of items) {
+    const tf = item.transform || [1, 0, 0, 1, 0, 0];
+    const x = tf[4], y = tf[5];
+    if (prev) {
+      const sameLine = Math.abs(y - prev.y) < 2;
+      if (!sameLine) {
+        out += '\n';
+      } else {
+        const gap = x - prev.endX;
+        const threshold = (item.height || prev.height || 10) * 0.22;
+        if (gap > threshold) out += ' ';
+      }
+    }
+    out += item.str;
+    prev = { y, endX: x + (item.width || 0), height: item.height };
+  }
+  return out;
+}
+
+// Bedragen tolerant parsen: haalt eerst alle spaties (en eventuele overgebleven
+// niet-cijfer-tekens) weg voordat de duizend-/decimaalscheiding wordt ontward — vangt
+// nog resterende gevallen op waarin cijfers per ongeluk uit elkaar gehaald werden.
 function parseAmount(str) {
   if (!str) return 0;
-  const cleaned = String(str).replace(/\./g, '').replace(',', '.');
+  const noSpaces = String(str).replace(/\s+/g, '');
+  const cleaned = noSpaces.replace(/\./g, '').replace(',', '.');
   const v = parseFloat(cleaned);
   return isNaN(v) ? 0 : v;
 }
@@ -1472,7 +1504,7 @@ async function addBrainDumpEntry() {
   const input = document.getElementById('braindumpInput');
   const text = (input.value || '').trim();
   if (!text) { input.focus(); return; }
-  if (!isGoogleSignedIn()) { alert('Log eerst in met Google via instellingen.'); return; }
+  if (!(await ensureFreshGoogleToken())) { alert('Log eerst in met Google via instellingen.'); return; }
   await ensureSharedData();
   const list = getBrainDumpList();
   list.push({ id: genId('bd'), text, createdAt: Date.now() });
@@ -1513,9 +1545,11 @@ function convertBrainDumpToNote(id) {
   document.getElementById('noteBodyInput').innerHTML = '<p>' + esc(item.text).replace(/\n/g, '</p><p>') + '</p>';
 }
 
-function openBrainDumpPanel() {
+async function openBrainDumpPanel() {
   document.getElementById('braindumpOverlay').classList.remove('hidden');
-  if (!isGoogleSignedIn()) {
+  document.getElementById('braindumpList').innerHTML = '<div class="loading">Even ophalen…</div>';
+  const signedIn = await ensureFreshGoogleToken();
+  if (!signedIn) {
     document.getElementById('braindumpList').innerHTML = '<div class="braindump-empty">Log eerst in met Google via instellingen om je brain dump te zien.</div>';
     return;
   }

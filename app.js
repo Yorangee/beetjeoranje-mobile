@@ -54,18 +54,40 @@ function setupServiceWorker() {
 // ---------- Tab-navigatie ----------
 function setupNav() {
   document.querySelectorAll('.nav-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const target = btn.getAttribute('data-nav');
       document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
       document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.getAttribute('data-view') === target));
-      // Budget en notities staan in het gedeelde Drive-bestand — pas ophalen zodra de
-      // gebruiker daadwerkelijk naar dat tabblad gaat (en niet steeds opnieuw als het al
-      // eerder geladen is, om onnodige Drive-verzoeken te voorkomen).
-      if (target === 'algemeen') { if (isGoogleSignedIn() && !sharedDataLoaded) { loadNotesView(); } else if (sharedDataLoaded) { renderNotesView(); } }
-      if (target === 'budget') { if (!isGoogleSignedIn()) { document.getElementById('budgetBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je budget te zien.</div>'; } else if (!sharedDataLoaded) { loadBudgetView(); } else { renderBudgetView(); } }
-      if (target === 'sport') { if (!isGoogleSignedIn()) { document.getElementById('weightBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om Sport te zien.</div>'; } else if (!sharedDataLoaded) { loadSportView(); } else { renderWeightBody(); loadNutritionPlan(); renderNutritionBody(); } }
-      if (target === 'zzp') { if (!isGoogleSignedIn()) { document.getElementById('btwBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om ZZP te zien.</div>'; } else if (!sharedDataLoaded) { loadZzpView(); } else { renderBtwBody(); renderIncomeBody(); } }
-      if (target === 'auto') { if (!isGoogleSignedIn()) { document.getElementById('apkBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om Auto te zien.</div>'; } else if (!sharedDataLoaded) { loadAutoView(); } else { renderApkBody(); renderCarVisitsBody(); } }
+
+      // Al eerder geladen deze sessie: meteen uit de cache renderen, geen netwerk/token nodig.
+      if (sharedDataLoaded) {
+        if (target === 'algemeen') renderNotesView();
+        if (target === 'budget') renderBudgetView();
+        if (target === 'sport') { renderWeightBody(); loadNutritionPlan(); renderNutritionBody(); }
+        if (target === 'zzp') { renderBtwBody(); renderIncomeBody(); }
+        if (target === 'auto') { renderApkBody(); renderCarVisitsBody(); }
+        return;
+      }
+
+      // Nog niet geladen: eerst zorgen voor een geldig token (probeert stilletjes te
+      // vernieuwen als het verlopen is, i.p.v. meteen "log in" te tonen — zie auth.js).
+      const signedIn = await ensureFreshGoogleToken();
+      if (!signedIn) {
+        const emptyMsgByTarget = {
+          budget: ['budgetBody', 'je budget'],
+          sport: ['weightBody', 'Sport'],
+          zzp: ['btwBody', 'ZZP'],
+          auto: ['apkBody', 'Auto']
+        };
+        const cfg = emptyMsgByTarget[target];
+        if (cfg) document.getElementById(cfg[0]).innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om ' + cfg[1] + ' te zien.</div>';
+        return;
+      }
+      if (target === 'algemeen') loadNotesView();
+      if (target === 'budget') loadBudgetView();
+      if (target === 'sport') loadSportView();
+      if (target === 'zzp') loadZzpView();
+      if (target === 'auto') loadAutoView();
     });
   });
 }
@@ -100,8 +122,9 @@ function setupSport() {
 function setupZzp() {
   document.getElementById('incomePrevYearBtn').addEventListener('click', () => shiftIncomeYear(-1));
   document.getElementById('incomeNextYearBtn').addEventListener('click', () => shiftIncomeYear(1));
-  document.getElementById('financeRefreshBtn').addEventListener('click', () => {
-    if (!isGoogleSignedIn()) { alert('Log eerst in met Google via instellingen.'); return; }
+  document.getElementById('financeRefreshBtn').addEventListener('click', async () => {
+    const signedIn = await ensureFreshGoogleToken();
+    if (!signedIn) { alert('Log eerst in met Google via instellingen.'); return; }
     loadInvoicesFromDrive();
   });
 }
@@ -142,18 +165,20 @@ function setupSettings() {
   // Bij het sluiten van instellingen altijd de agenda/taken opnieuw proberen te laden —
   // vangnet voor het geval de inlog-popup op mobiel zelf niet netjes heeft teruggemeld
   // dat het gelukt is (dat gebeurt soms met popup-gebaseerde flows in mobiele browsers).
-  const closeSettingsAndRefresh = () => {
+  const closeSettingsAndRefresh = async () => {
     overlay.classList.add('hidden');
+    refreshGoogleStatus();
+    const signedIn = await ensureFreshGoogleToken();
     refreshGoogleStatus();
     loadAgenda();
     loadTasks();
     loadNotesIfSignedIn();
     const activeView = document.querySelector('.view.active');
     const activeName = activeView ? activeView.getAttribute('data-view') : null;
-    if (activeName === 'budget' && isGoogleSignedIn()) loadBudgetView();
-    if (activeName === 'sport' && isGoogleSignedIn()) loadSportView();
-    if (activeName === 'zzp' && isGoogleSignedIn()) loadZzpView();
-    if (activeName === 'auto' && isGoogleSignedIn()) loadAutoView();
+    if (activeName === 'budget' && signedIn) loadBudgetView();
+    if (activeName === 'sport' && signedIn) loadSportView();
+    if (activeName === 'zzp' && signedIn) loadZzpView();
+    if (activeName === 'auto' && signedIn) loadAutoView();
   };
   document.getElementById('settingsCloseBtn').addEventListener('click', closeSettingsAndRefresh);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSettingsAndRefresh(); });
@@ -262,7 +287,9 @@ let lastLoadedTasks = [];
 async function loadAgenda() {
   const el = document.getElementById('agendaList');
   if (!isGoogleConfigured()) { el.innerHTML = '<div class="error">Vul eerst GOOGLE_CLIENT_ID in auth.js in.</div>'; return; }
-  if (!isGoogleSignedIn()) { el.innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je agenda te zien.</div>'; return; }
+  if (!isGoogleSignedIn()) el.innerHTML = '<div class="loading">Even inloggen…</div>';
+  const signedIn = await ensureFreshGoogleToken();
+  if (!signedIn) { el.innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je agenda te zien.</div>'; return; }
   el.innerHTML = '<div class="loading">Agenda ophalen…</div>';
   try {
     const events = await fetchTodayEvents();
@@ -369,8 +396,9 @@ async function loadTasks() {
 // die moeten net als agenda/taken meteen bij het opstarten geladen worden i.p.v. pas
 // bij een tab-wissel — die trigger vuurt hier niet, want de gebruiker start al op dit
 // tabblad.
-function loadNotesIfSignedIn() {
-  if (isGoogleSignedIn()) loadNotesView().then(() => renderBrainDumpBadge());
+async function loadNotesIfSignedIn() {
+  const signedIn = await ensureFreshGoogleToken();
+  if (signedIn) loadNotesView().then(() => renderBrainDumpBadge());
   else document.getElementById('notesList').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je notities te zien.</div>';
 }
 
@@ -424,6 +452,11 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     refreshGoogleStatus();
+    // loadAgenda()/loadNotesIfSignedIn() proberen bij een verlopen token nu eerst zelf
+    // stilletjes te vernieuwen (ensureFreshGoogleToken) voordat ze een inlogmelding tonen —
+    // dit is precies het moment (terug in beeld na een tijdje weg) waarop dat vaak nodig is.
     loadAgenda();
+    loadNotesIfSignedIn();
+    refreshGoogleStatus();
   }
 });
