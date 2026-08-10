@@ -998,23 +998,39 @@ function openCarVisitModal() {
 // vanaf een CDN, alleen wanneer deze kaart daadwerkelijk geopend wordt) voor de
 // tekst-extractie uit de PDF's zelf.
 const FACTUREN_FOLDER_ID = '1hkIVdq-x2gQ_CXlVDhlExXsSaa6q9cNV';
-const PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.2.108/';
+// Bewust een oudere, zeer breed geteste pdf.js-versie (3.11.174 — de laatste vóór pdf.js
+// overstapte op ES-module-only builds) i.p.v. de nieuwste. De nieuwste versie (6.x) bleek
+// op dit toestel te struikelen binnen getTextContent() zelf (TypeError diep in pdf.js'
+// eigen minified code, dus geen cross-origin/worker-probleem maar een compatibiliteits-
+// probleem met een nieuwere JS-taalfeature). Deze klassieke (niet-module) build gebruikt
+// een gewoon <script>-tag en een gewone (niet-module) worker, wat veel minder kans geeft
+// op dit soort incompatibiliteit met oudere mobiele browsers.
+const PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 let pdfjsLibPromise = null;
-// pdf.js draait de PDF-verwerking in een Web Worker, en die worker-URL wijst naar een
-// ANDER domein (de CDN) dan de app zelf. Sommige mobiele browsers (met name Safari/iOS)
-// weigeren zo'n cross-origin worker stilletjes, waarna élke PDF-bewerking faalt met een
-// cryptische "undefined is not a function"-fout — niets wijst dan naar de echte oorzaak.
-// Oplossing: de workercode zelf ophalen via fetch() (dat mag wél cross-origin, met CORS)
-// en aanbieden als een same-origin blob-URL, wat deze beperking omzeilt.
+function loadScriptTag(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('script laden mislukt: ' + src));
+    document.head.appendChild(script);
+  });
+}
 function ensurePdfJs() {
   if (!pdfjsLibPromise) {
     pdfjsLibPromise = (async () => {
-      const mod = await import(PDFJS_BASE + 'pdf.min.mjs');
-      const workerRes = await fetch(PDFJS_BASE + 'pdf.worker.min.mjs');
+      if (!window.pdfjsLib) {
+        await loadScriptTag(PDFJS_BASE + 'pdf.min.js');
+      }
+      if (!window.pdfjsLib) throw new Error('pdfjsLib niet gevonden na laden van pdf.min.js');
+      // De worker cross-origin (CDN-domein i.p.v. het domein van de app) laten laden
+      // faalt op sommige mobiele browsers stilletjes — de workercode zelf ophalen en als
+      // same-origin blob-URL aanbieden omzeilt dat.
+      const workerRes = await fetch(PDFJS_BASE + 'pdf.worker.min.js');
       if (!workerRes.ok) throw new Error('pdf.js-worker ophalen mislukt (' + workerRes.status + ')');
       const workerBlob = await workerRes.blob();
-      mod.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
-      return mod;
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
+      return window.pdfjsLib;
     })().catch((e) => {
       // Bij mislukken de cache leeggooien, zodat een volgende poging (nogmaals op
       // "Ververs" tikken) écht opnieuw probeert i.p.v. voor altijd dezelfde mislukte
