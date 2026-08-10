@@ -63,6 +63,9 @@ function setupNav() {
       // eerder geladen is, om onnodige Drive-verzoeken te voorkomen).
       if (target === 'budget') { if (!isGoogleSignedIn()) { document.getElementById('budgetBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je budget te zien.</div>'; } else if (!sharedDataLoaded) { loadBudgetView(); } else { renderBudgetView(); } }
       if (target === 'notities') { if (!isGoogleSignedIn()) { document.getElementById('notesList').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je notities te zien.</div>'; } else if (!sharedDataLoaded) { loadNotesView(); } else { renderNotesView(); } }
+      if (target === 'sport') { if (!isGoogleSignedIn()) { document.getElementById('weightBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om Sport te zien.</div>'; } else if (!sharedDataLoaded) { loadSportView(); } else { renderWeightBody(); loadNutritionPlan(); renderNutritionBody(); } }
+      if (target === 'zzp') { if (!isGoogleSignedIn()) { document.getElementById('btwBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om ZZP te zien.</div>'; } else if (!sharedDataLoaded) { loadZzpView(); } else { renderBtwBody(); renderIncomeBody(); } }
+      if (target === 'auto') { if (!isGoogleSignedIn()) { document.getElementById('apkBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om Auto te zien.</div>'; } else if (!sharedDataLoaded) { loadAutoView(); } else { renderApkBody(); renderCarVisitsBody(); } }
     });
   });
 }
@@ -83,6 +86,24 @@ function setupNotes() {
   document.getElementById('noteEditorOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeNoteEditor(); });
   document.getElementById('noteSaveBtn').addEventListener('click', saveNoteFromEditor);
   document.getElementById('noteDeleteBtn').addEventListener('click', deleteNoteFromEditor);
+}
+
+// ---------- Sport: knoppen ----------
+function setupSport() {
+  document.getElementById('nutriPrevBtn').addEventListener('click', () => shiftNutritionDay(-1));
+  document.getElementById('nutriNextBtn').addEventListener('click', () => shiftNutritionDay(1));
+  document.getElementById('nutriAddDayBtn').addEventListener('click', addNutritionDay);
+}
+
+// ---------- ZZP: knoppen ----------
+function setupZzp() {
+  document.getElementById('incomePrevYearBtn').addEventListener('click', () => shiftIncomeYear(-1));
+  document.getElementById('incomeNextYearBtn').addEventListener('click', () => shiftIncomeYear(1));
+}
+
+// ---------- Auto: knoppen ----------
+function setupAuto() {
+  document.getElementById('carVisitAddBtn').addEventListener('click', openCarVisitModal);
 }
 
 // ---------- Instellingen-paneel ----------
@@ -114,6 +135,9 @@ function setupSettings() {
     const activeName = activeView ? activeView.getAttribute('data-view') : null;
     if (activeName === 'budget' && isGoogleSignedIn()) loadBudgetView();
     if (activeName === 'notities' && isGoogleSignedIn()) loadNotesView();
+    if (activeName === 'sport' && isGoogleSignedIn()) loadSportView();
+    if (activeName === 'zzp' && isGoogleSignedIn()) loadZzpView();
+    if (activeName === 'auto' && isGoogleSignedIn()) loadAutoView();
   };
   document.getElementById('settingsCloseBtn').addEventListener('click', closeSettingsAndRefresh);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSettingsAndRefresh(); });
@@ -338,6 +362,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSettings();
   setupBudgetNav();
   setupNotes();
+  setupSport();
+  setupZzp();
+  setupAuto();
   bootGoogleAuthWhenReady();
   loadAgenda();
   loadTasks();
