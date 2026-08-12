@@ -178,34 +178,43 @@
     </div>
   </div>
 
-  <!-- ---------- Notitie bewerken ---------- -->
-  <div class="modal-overlay hidden" id="noteEditorOverlay">
-    <div class="modal-sheet note-editor-sheet">
-      <button type="button" class="modal-close" id="noteEditorCloseBtn">✕</button>
-      <h3>Notitie</h3>
-      <div class="modal-field">
-        <input type="text" id="noteTitleInput" placeholder="Titel" style="font-weight:800; font-size:15px;">
+  <!-- ---------- Notitie bewerken (schermvullend, vrij typen zoals op desktop) ---------- -->
+  <div class="modal-overlay hidden note-editor-overlay" id="noteEditorOverlay">
+    <div class="note-editor-box" id="noteEditorBox">
+      <div class="note-toolbar-fixed" id="noteToolbarFixed">
+        <div class="note-toolbar-left" id="rteToolbar">
+          <select class="rte-select" id="rteSizeSelect" title="Tekstgrootte">
+            <option value="2">Klein</option>
+            <option value="3" selected>Normaal</option>
+            <option value="4">Groot</option>
+            <option value="5">Extra groot</option>
+            <option value="6">Kop</option>
+          </select>
+          <button type="button" class="rte-btn" id="rteBoldBtn" title="Vet"><b>V</b></button>
+          <button type="button" class="rte-btn" id="rteItalicBtn" title="Cursief"><i>C</i></button>
+          <button type="button" class="rte-btn" id="rteUnderlineBtn" title="Onderstrepen"><u>O</u></button>
+          <div class="rte-color-wrap">
+            <button type="button" class="rte-btn rte-color-btn" id="rteColorBtn" title="Tekstkleur">🪣</button>
+            <div class="rte-color-popover hidden" id="rteColorPopover">
+              <div class="rte-color-swatches" id="rteColorSwatches"></div>
+              <label class="rte-color-custom">Aangepast<input type="color" id="rteColorInput" class="rte-color-input" value="#2B2016"></label>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="note-editor-icon-btn" id="noteEditorCloseBtn" title="Sluiten">✕</button>
       </div>
-      <div class="modal-field">
-        <select id="noteCategorySelect"></select>
+      <div class="note-page-scroll" id="notePageScroll">
+        <div class="note-editor-body" id="noteBodyInput" contenteditable="true" data-placeholder="Schrijf hier je notitie…"></div>
       </div>
-      <div class="rte-toolbar" id="rteToolbar">
-        <select class="rte-select" id="rteSizeSelect" title="Tekstgrootte">
-          <option value="2">Klein</option>
-          <option value="3" selected>Normaal</option>
-          <option value="4">Groot</option>
-          <option value="5">Extra groot</option>
-          <option value="6">Kop</option>
-        </select>
-        <button type="button" class="rte-btn" id="rteBoldBtn" title="Vet"><b>V</b></button>
-        <button type="button" class="rte-btn" id="rteItalicBtn" title="Cursief"><i>C</i></button>
-        <button type="button" class="rte-btn" id="rteUnderlineBtn" title="Onderstrepen"><u>O</u></button>
-        <button type="button" class="rte-btn rte-color-btn" id="rteColorBtn" title="Tekstkleur">A</button>
-        <input type="color" id="rteColorInput" class="rte-color-input" value="#2B2016">
+      <div class="note-editor-footer">
+        <input type="text" id="noteTitleInput" class="note-editor-title-input" placeholder="Titel">
+        <div class="note-category-wrap">
+          <span class="note-category-icon">🏷️</span>
+          <select id="noteCategorySelect" class="note-editor-category-select"></select>
+        </div>
+        <button type="button" class="note-editor-del-btn" id="noteDeleteBtn" title="Verwijderen">🗑</button>
+        <button type="button" class="note-editor-save-btn" id="noteSaveBtn">Opslaan</button>
       </div>
-      <div class="note-editor-body" id="noteBodyInput" contenteditable="true" data-placeholder="Schrijf hier je notitie…"></div>
-      <button type="button" class="btn-primary" id="noteSaveBtn">Opslaan</button>
-      <button type="button" class="btn-secondary" id="noteDeleteBtn" style="color:var(--danger);">Verwijderen</button>
     </div>
   </div>
 

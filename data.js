@@ -239,12 +239,18 @@ function openNoteEditor(id) {
   document.getElementById('noteBodyInput').innerHTML = note ? (note.contentHTML || '') : '';
   document.getElementById('noteDeleteBtn').style.display = note ? '' : 'none';
   document.getElementById('noteEditorOverlay').classList.remove('hidden');
+  const popover = document.getElementById('rteColorPopover');
+  if (popover) popover.classList.add('hidden');
+  const scroll = document.getElementById('notePageScroll');
+  if (scroll) scroll.scrollTop = 0;
 }
 
 function closeNoteEditor() {
   document.getElementById('noteEditorOverlay').classList.add('hidden');
   editingNoteId = null;
   noteSavedRange = null;
+  const popover = document.getElementById('rteColorPopover');
+  if (popover) popover.classList.add('hidden');
 }
 
 function saveNoteFromEditor() {
@@ -287,8 +293,11 @@ function deleteNoteFromEditor() {
 // Gebruikt document.execCommand — verouderd maar nog overal (incl. mobiele browsers)
 // ondersteund, en precies wat het desktop-dashboard ook gebruikt, zodat de opgeslagen
 // HTML tussen beide versies compatibel blijft.
+const TEXT_COLOR_PRESETS = ['#2B2016', '#9A3B26', '#C8622A', '#B8860B', '#3F7D4F', '#2E6E8E', '#4A5FBE', '#7C3FA0', '#B23A73', '#6B6B6B'];
+
 function setupRichTextToolbar() {
   const body = document.getElementById('noteBodyInput');
+  const scrollWrap = document.getElementById('notePageScroll');
 
   function saveSel() {
     const sel = window.getSelection();
@@ -323,14 +332,67 @@ function setupRichTextToolbar() {
     saveSel();
   });
 
+  // Tekstkleur: verfemmertje met voorgedefinieerde kleuren + "Aangepast" als fallback
+  // (zelfde presets als op desktop, zodat notities er overal hetzelfde uitzien).
   const colorBtn = document.getElementById('rteColorBtn');
   const colorInput = document.getElementById('rteColorInput');
-  colorBtn.addEventListener('click', () => { saveSel(); colorInput.click(); });
+  const colorPopover = document.getElementById('rteColorPopover');
+  const swatchesEl = document.getElementById('rteColorSwatches');
+  swatchesEl.innerHTML = TEXT_COLOR_PRESETS.map((c) =>
+    `<button type="button" class="rte-color-swatch" style="background:${c}" data-color="${c}" title="${c}"></button>`
+  ).join('');
+  colorBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    saveSel();
+    colorPopover.classList.toggle('hidden');
+  });
+  swatchesEl.addEventListener('click', (e) => {
+    const sw = e.target.closest('.rte-color-swatch');
+    if (!sw) return;
+    restoreSel();
+    document.execCommand('foreColor', false, sw.getAttribute('data-color'));
+    saveSel();
+    colorPopover.classList.add('hidden');
+  });
   colorInput.addEventListener('input', (e) => {
     restoreSel();
     document.execCommand('foreColor', false, e.target.value);
     saveSel();
   });
+  colorInput.addEventListener('change', () => colorPopover.classList.add('hidden'));
+  document.addEventListener('click', (e) => {
+    if (!colorPopover.classList.contains('hidden') && !e.target.closest('.rte-color-wrap')) {
+      colorPopover.classList.add('hidden');
+    }
+  });
+
+  // Geselecteerde tekst moet met Backspace/Delete verdwijnen — sommige mobiele
+  // browsers doen dit niet altijd betrouwbaar via het standaard contenteditable-gedrag.
+  body.addEventListener('keydown', (e) => {
+    if (e.key !== 'Backspace' && e.key !== 'Delete') return;
+    const sel = window.getSelection();
+    if (!sel.rangeCount || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    if (!body.contains(range.commonAncestorContainer)) return;
+    e.preventDefault();
+    range.deleteContents();
+  });
+
+  // Klikken op lege ruimte onder de tekst zet de cursor aan het einde — maar nooit als
+  // er net een selectie is gemaakt (anders verdwijnt de selectie meteen weer).
+  if (scrollWrap) {
+    scrollWrap.addEventListener('click', (e) => {
+      if (e.target !== scrollWrap) return;
+      const existingSel = window.getSelection();
+      if (existingSel && !existingSel.isCollapsed) return;
+      body.focus();
+      const range = document.createRange();
+      range.selectNodeContents(body);
+      range.collapse(false);
+      existingSel.removeAllRanges();
+      existingSel.addRange(range);
+    });
+  }
 }
 
 // ---------- Budget ----------
