@@ -53,11 +53,13 @@ function setupServiceWorker() {
 
 // ---------- Begroeting bovenaan "Algemeen" (vervangt de statische "Vandaag"-titel) ----------
 function renderGreeting() {
-  const el = document.getElementById('heroGreeting');
-  if (!el) return;
+  const eyebrowEl = document.getElementById('heroEyebrow');
+  const nameEl = document.getElementById('heroName');
+  if (!eyebrowEl || !nameEl) return;
   const h = new Date().getHours();
   const part = h < 6 ? 'Goedenacht' : h < 12 ? 'Goedemorgen' : h < 18 ? 'Goedemiddag' : 'Goedenavond';
-  el.textContent = part + ', Yoran';
+  eyebrowEl.textContent = part + ',';
+  nameEl.textContent = 'Yoran';
 }
 
 // ---------- Hamburger-menu: zij-drawer met de tabbladen (i.p.v. de onderbalk) ----------
