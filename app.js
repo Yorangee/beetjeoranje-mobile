@@ -1,5 +1,44 @@
 // ================= APP =================
 
+// ---------- iOS-bounce-fix voor "toegevoegd aan beginscherm" ----------
+// CSS `overscroll-behavior` (zie style.css) voorkomt de rubber-band-bounce prima in een
+// gewone Safari-tab, maar WebKit negeert dat helaas nog steeds in een standalone
+// "toegevoegd aan beginscherm"-app — daar bounct de native WebView zelf nog gewoon door,
+// wat het witte vlak bovenin/onderin laat zien bij snel vegen. Dit vangt dat handmatig af:
+// een touchmove buiten een scrollbare container (of tegen de rand ervan, in de richting
+// van de veeg) wordt geblokkeerd, terwijl normaal scrollen bínnen bijv. <main> of een
+// modal gewoon blijft werken.
+(function preventIosStandaloneBounce() {
+  function findScrollableY(el) {
+    let node = el;
+    while (node && node !== document.documentElement && node !== document.body) {
+      const cs = window.getComputedStyle(node);
+      const oy = cs.overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight + 1) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  let startY = 0;
+  let scrollEl = null;
+
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { scrollEl = null; return; }
+    startY = e.touches[0].clientY;
+    scrollEl = findScrollableY(e.target);
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 1) return; // pinch/zoom en andere multi-touch met rust laten
+    const deltaY = e.touches[0].clientY - startY;
+    if (!scrollEl) { e.preventDefault(); return; }
+    const atTop = scrollEl.scrollTop <= 0;
+    const atBottom = scrollEl.scrollHeight - scrollEl.scrollTop <= scrollEl.clientHeight + 1;
+    if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) e.preventDefault();
+  }, { passive: false });
+})();
+
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
