@@ -10,11 +10,14 @@
   --card-bottom: #FDEEDD;
   --border-soft: rgba(43,32,22,0.12);
   --ease: cubic-bezier(.22,.9,.32,1);
-  /* ---------- Glass-look tokens ---------- */
-  --glass-bg: rgba(255,255,255,0.40);
-  --glass-bg-strong: rgba(255,255,255,0.62);
-  --glass-border: rgba(255,255,255,0.55);
-  --glass-shadow: 0 10px 34px rgba(140,60,10,0.16), inset 0 1px 0 rgba(255,255,255,0.55);
+  /* ---------- Glass-look tokens ----------
+     Bewust een verlopende (niet-platte) achtergrond i.p.v. één effen rgba-kleur: dat geeft
+     een zichtbaar "glas"-effect (lichte sheen linksboven, meer doorschijnend rechtsonder)
+     ook op plekken/renderers waar backdrop-filter/blur niet wordt ondersteund. */
+  --glass-bg: linear-gradient(152deg, rgba(255,255,255,0.58) 0%, rgba(255,255,255,0.22) 100%);
+  --glass-bg-strong: linear-gradient(152deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.36) 100%);
+  --glass-border: rgba(255,255,255,0.75);
+  --glass-shadow: 0 12px 36px rgba(140,60,10,0.22), inset 0 1px 0 rgba(255,255,255,0.7);
   --blur: 22px;
 }
 
@@ -26,14 +29,17 @@ html, body {
   font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at 12% -6%, rgba(255,222,170,0.75) 0%, transparent 45%),
-    radial-gradient(circle at 100% 12%, rgba(255,179,122,0.55) 0%, transparent 42%),
+    radial-gradient(circle at 10% -8%, rgba(255,225,175,0.85) 0%, transparent 40%),
+    radial-gradient(circle at 105% 10%, rgba(255,150,150,0.38) 0%, transparent 38%),
+    radial-gradient(circle at -5% 55%, rgba(255,196,120,0.55) 0%, transparent 40%),
+    radial-gradient(circle at 100% 92%, rgba(200,90,29,0.45) 0%, transparent 45%),
     linear-gradient(165deg, #F8B45C 0%, #F2903D 45%, #D9691E 100%);
   background-attachment: fixed;
   -webkit-tap-highlight-color: transparent;
 }
 
 #app {
+  position: relative;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -133,10 +139,11 @@ main {
 @media (max-width: 380px) { .task-grid { grid-template-columns: 1fr 1fr; gap: 8px; } }
 .task-tile {
   display: flex; flex-direction: column; gap: 8px;
-  background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.65);
+  background: linear-gradient(150deg, rgba(255,255,255,0.66) 0%, rgba(255,255,255,0.30) 100%);
+  border: 1px solid rgba(255,255,255,0.7);
   border-radius: 16px; padding: 11px;
   backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow: 0 5px 16px rgba(140,60,10,0.10), inset 0 1px 0 rgba(255,255,255,0.6);
+  box-shadow: 0 5px 16px rgba(140,60,10,0.12), inset 0 1px 0 rgba(255,255,255,0.7);
 }
 .task-tile-top { display: flex; align-items: center; justify-content: space-between; }
 .task-tile .task-check {
@@ -159,7 +166,7 @@ main {
 
 /* ---------- Navigatie: hamburger-menu met zij-drawer i.p.v. onderbalk ---------- */
 .nav-drawer-overlay {
-  position: fixed; inset: 0; z-index: 90;
+  position: absolute; inset: 0; z-index: 90;
   background: rgba(20,12,4,0.38);
   transition: opacity 0.22s var(--ease);
 }
@@ -193,7 +200,7 @@ main {
 
 /* ---------- Settings modal ---------- */
 .modal-overlay {
-  position: fixed; inset: 0; z-index: 60;
+  position: absolute; inset: 0; z-index: 60;
   background: rgba(20,12,4,0.45);
   display: flex; align-items: flex-end; justify-content: center;
 }
@@ -283,7 +290,7 @@ main {
 
 /* ---------- Brain dump ---------- */
 .braindump-trigger {
-  position: fixed; right: 14px; z-index: 25;
+  position: absolute; right: 14px; z-index: 25;
   bottom: calc(18px + env(safe-area-inset-bottom));
   width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
   background: linear-gradient(180deg, #F6A05A, var(--orange)); color: #fff; font-size: 20px;
