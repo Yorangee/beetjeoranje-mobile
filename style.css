@@ -115,17 +115,34 @@ main {
 }
 .hero-sub.loading, .hero-sub.empty { font-size: 14px; }
 
-.brief-narrative { margin: 0 0 4px; font-size: 15.5px; line-height: 1.65; color: var(--ink); }
+/* Bewust een ander, "strakker" lettertype dan de rest van de UI (afgeronde system-font
+   i.p.v. de standaard -apple-system) plus gedempte basistekst met venijnig-oranje
+   uitgelichte cijfers/namen — leest als een moderne samenvatting i.p.v. platte zin. */
+.brief-narrative {
+  margin: 0; font-size: 16.5px; line-height: 1.55; letter-spacing: -0.01em;
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
+  font-weight: 500; color: rgba(43,32,22,0.68);
+}
 .brief-narrative strong { color: var(--orange-dark); font-weight: 800; }
 
-/* ---------- Agenda ---------- */
-.agenda-item {
-  display: flex; align-items: center; gap: 10px; padding: 10px 0;
-  border-bottom: 1px dashed var(--border-soft);
+/* ---------- Agenda: afspraken als eigen glazen vakken, in stijl met de taken-blokjes ---------- */
+#agendaList { display: flex; flex-direction: column; gap: 10px; }
+.agenda-card {
+  display: flex; align-items: center; gap: 14px;
+  background: linear-gradient(150deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.26) 100%);
+  border: 1px solid rgba(255,255,255,0.7);
+  border-radius: 16px; padding: 12px 14px;
+  backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 5px 16px rgba(140,60,10,0.10), inset 0 1px 0 rgba(255,255,255,0.65);
 }
-.agenda-item:last-child { border-bottom: none; }
-.agenda-item .t { flex: none; width: 52px; font-size: 12px; font-weight: 800; color: var(--orange-dark); }
-.agenda-item .s { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agenda-card-time {
+  flex: none; min-width: 58px; text-align: center;
+  background: linear-gradient(180deg, #F6A05A, var(--orange)); color: #fff;
+  font-weight: 800; font-size: 13.5px; letter-spacing: 0.01em;
+  padding: 7px 8px; border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(200,90,29,0.32);
+}
+.agenda-card-title { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.35; }
 
 /* ---------- Taken: kleine blokjes i.p.v. rijen, gesplitst per groep ---------- */
 .task-group-title {

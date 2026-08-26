@@ -346,8 +346,8 @@ function renderAgendaList(events) {
   const el = document.getElementById('agendaList');
   if (events.length === 0) { el.innerHTML = '<div class="empty">Niets meer gepland voor vandaag.</div>'; return; }
   el.innerHTML = events.map((ev) => {
-    const timeLabel = ev.start.date ? 'hele dag' : new Date(ev.start.dateTime).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-    return `<div class="agenda-item"><span class="t">${esc(timeLabel)}</span><span class="s">${esc(ev.summary || '(geen titel)')}</span></div>`;
+    const timeLabel = ev.start.date ? 'Hele dag' : new Date(ev.start.dateTime).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    return `<div class="agenda-card"><span class="agenda-card-time">${esc(timeLabel)}</span><span class="agenda-card-title">${esc(ev.summary || '(geen titel)')}</span></div>`;
   }).join('');
 }
 
