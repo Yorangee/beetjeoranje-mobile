@@ -150,11 +150,16 @@ main {
   color: var(--orange-dark); margin: 12px 0 6px;
 }
 .task-group-title:first-child { margin-top: 0; }
+/* Horizontaal swipebare carousel i.p.v. een grid — elk blokje snapt netjes vast tijdens
+   het vegen, net als een App Store-rij. */
 .task-grid {
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 2px;
+  display: flex; flex-direction: row; gap: 10px; overflow-x: auto;
+  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  padding: 2px 2px 12px; margin: 0 -2px 2px;
 }
-@media (max-width: 380px) { .task-grid { grid-template-columns: 1fr 1fr; gap: 8px; } }
+.task-grid::-webkit-scrollbar { display: none; }
 .task-tile {
+  flex: 0 0 156px; width: 156px; scroll-snap-align: start;
   display: flex; flex-direction: column; gap: 8px;
   background: linear-gradient(150deg, rgba(255,255,255,0.66) 0%, rgba(255,255,255,0.30) 100%);
   border: 1px solid rgba(255,255,255,0.7);
