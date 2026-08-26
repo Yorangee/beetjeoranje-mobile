@@ -51,6 +51,38 @@ function setupServiceWorker() {
   });
 }
 
+// ---------- Begroeting bovenaan "Algemeen" (vervangt de statische "Vandaag"-titel) ----------
+function renderGreeting() {
+  const el = document.getElementById('heroGreeting');
+  if (!el) return;
+  const h = new Date().getHours();
+  const part = h < 6 ? 'Goedenacht' : h < 12 ? 'Goedemorgen' : h < 18 ? 'Goedemiddag' : 'Goedenavond';
+  el.textContent = part + ', Yoran';
+}
+
+// ---------- Hamburger-menu: zij-drawer met de tabbladen (i.p.v. de onderbalk) ----------
+function openNavDrawer() {
+  const overlay = document.getElementById('navDrawerOverlay');
+  const drawer = document.getElementById('navDrawer');
+  overlay.classList.remove('hidden');
+  requestAnimationFrame(() => drawer.classList.add('open'));
+}
+function closeNavDrawer() {
+  const overlay = document.getElementById('navDrawerOverlay');
+  const drawer = document.getElementById('navDrawer');
+  drawer.classList.remove('open');
+  setTimeout(() => overlay.classList.add('hidden'), 220);
+}
+function setupNavDrawer() {
+  document.getElementById('hamburgerBtn').addEventListener('click', openNavDrawer);
+  document.getElementById('navDrawerCloseBtn').addEventListener('click', closeNavDrawer);
+  document.getElementById('navDrawerOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeNavDrawer(); });
+  // Drawer sluit vanzelf na het kiezen van een tabblad — de tab-wissel zelf gebeurt via
+  // de bestaande '.nav-btn'-click-handler hieronder in setupNav(), deze luisteraar komt
+  // daar gewoon bovenop.
+  document.querySelectorAll('.nav-drawer-btn').forEach((btn) => btn.addEventListener('click', closeNavDrawer));
+}
+
 // ---------- Tab-navigatie ----------
 function setupNav() {
   document.querySelectorAll('.nav-btn').forEach((btn) => {
@@ -534,17 +566,21 @@ async function createTodoistTask(content) {
 
 function taskRowHtml(t, overdue) {
   const dueYmd = taskDueYmd(t);
-  return `<div class="task-row" data-id="${esc(t.id)}">
-    <button type="button" class="task-check" data-id="${esc(t.id)}" title="Afvinken"></button>
-    <span class="txt">${esc(t.content)}</span>
-    <span class="due${overdue ? ' overdue' : ''}">${dueYmd ? esc(formatTaskDateShort(dueYmd)) : ''}</span>
-    ${dueYmd ? `<button type="button" class="task-postpone-btn" data-id="${esc(t.id)}" title="Naar morgen verplaatsen">→</button>` : ''}
-    <button type="button" class="task-edit-btn" data-id="${esc(t.id)}" title="Bewerken">✎</button>
+  return `<div class="task-tile" data-id="${esc(t.id)}">
+    <div class="task-tile-top">
+      <button type="button" class="task-check" data-id="${esc(t.id)}" title="Afvinken"></button>
+      <button type="button" class="task-edit-btn" data-id="${esc(t.id)}" title="Bewerken">✎</button>
+    </div>
+    <div class="task-tile-txt">${esc(t.content)}</div>
+    <div class="task-tile-foot">
+      <span class="task-tile-due${overdue ? ' overdue' : ''}">${dueYmd ? esc(formatTaskDateShort(dueYmd)) : ''}</span>
+      ${dueYmd ? `<button type="button" class="task-postpone-btn" data-id="${esc(t.id)}" title="Naar morgen verplaatsen">→</button>` : ''}
+    </div>
   </div>`;
 }
 
 // Verdeelt taken in Vandaag (incl. te laat)/Aankomend/Zonder datum, net als op de
-// desktop-versie — i.p.v. één platte lijst.
+// desktop-versie — als kleine blokjes in een grid i.p.v. één platte lijst met rijen.
 function renderTaskList(tasks) {
   const el = document.getElementById('taskList');
   const todayYmd = ymd(new Date());
@@ -561,15 +597,15 @@ function renderTaskList(tasks) {
 
   let html = '<div class="task-group-title">Vandaag</div>';
   html += todayGroup.length
-    ? todayGroup.map((t) => taskRowHtml(t, taskDueYmd(t) < todayYmd)).join('')
+    ? '<div class="task-grid">' + todayGroup.map((t) => taskRowHtml(t, taskDueYmd(t) < todayYmd)).join('') + '</div>'
     : '<div class="empty">Niets voor vandaag.</div>';
   if (upcomingGroup.length) {
     html += '<div class="task-group-title">Aankomend</div>';
-    html += upcomingGroup.map((t) => taskRowHtml(t, false)).join('');
+    html += '<div class="task-grid">' + upcomingGroup.map((t) => taskRowHtml(t, false)).join('') + '</div>';
   }
   if (withoutDue.length) {
     html += '<div class="task-group-title">Zonder datum</div>';
-    html += withoutDue.map((t) => taskRowHtml(t, false)).join('');
+    html += '<div class="task-grid">' + withoutDue.map((t) => taskRowHtml(t, false)).join('') + '</div>';
   }
   el.innerHTML = html;
 
@@ -657,8 +693,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // heeft niets nodig van Google's externe script, dus dit mag en moet als allereerste.
   loadStoredGoogleToken();
 
+  renderGreeting();
   setupServiceWorker();
   setupNav();
+  setupNavDrawer();
   setupSettings();
   setupBudgetNav();
   setupNotes();
@@ -682,6 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // of we inmiddels ingelogd zijn en de agenda dan verversen.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
+    renderGreeting();
     refreshGoogleStatus();
     // loadAgenda()/loadNotesIfSignedIn() proberen bij een verlopen token nu eerst zelf
     // stilletjes te vernieuwen (ensureFreshGoogleToken) voordat ze een inlogmelding tonen —

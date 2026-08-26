@@ -14,8 +14,9 @@
 <div id="app">
 
   <div class="topbar">
+    <button type="button" class="topbar-icon-btn" id="hamburgerBtn" title="Menu">☰</button>
     <div class="topbar-brand"><span class="topbar-brand-dot"></span>BeetjeOranje</div>
-    <button type="button" class="topbar-settings-btn" id="settingsBtn" title="Instellingen">⚙</button>
+    <button type="button" class="topbar-icon-btn" id="settingsBtn" title="Instellingen">⚙</button>
   </div>
 
   <div class="update-banner" id="updateBanner">
@@ -23,14 +24,12 @@
     <button type="button" id="updateReloadBtn">Herladen</button>
   </div>
 
-  <div id="debugBanner" style="display:none; margin:0 16px 10px; padding:12px 14px; border-radius:12px; background:#fff; border:2px solid #E0544A; color:#2B2016; font-size:12px; font-family:monospace; white-space:pre-wrap; word-break:break-word; max-height:220px; overflow-y:auto;"></div>
-
   <main>
     <!-- ---------- Algemeen (agenda + taken + notities samen, net als desktop) ---------- -->
     <section class="view active" data-view="algemeen">
-      <div class="card">
-        <h2>Vandaag</h2>
-        <div id="briefSummary" class="loading">Even ophalen…</div>
+      <div class="card card-hero" id="heroCard">
+        <div class="hero-greeting" id="heroGreeting">Goedemorgen, Yoran</div>
+        <div id="briefSummary" class="hero-sub loading">Even ophalen…</div>
       </div>
       <div class="card">
         <h2>Agenda <button type="button" id="agendaRefreshBtn" style="float:right; border:none; background:rgba(242,144,61,0.14); color:var(--orange-dark); font-size:11.5px; font-weight:800; padding:5px 10px; border-radius:8px;">Ververs</button></h2>
@@ -135,13 +134,19 @@
     </section>
   </main>
 
-  <nav class="bottom-nav">
-    <button type="button" class="nav-btn active" data-nav="algemeen"><span class="icon">🏠</span><span class="label">Algemeen</span></button>
-    <button type="button" class="nav-btn" data-nav="budget"><span class="icon">💶</span><span class="label">Budget</span></button>
-    <button type="button" class="nav-btn" data-nav="sport"><span class="icon">🏋️</span><span class="label">Sport</span></button>
-    <button type="button" class="nav-btn" data-nav="zzp"><span class="icon">🧾</span><span class="label">ZZP</span></button>
-    <button type="button" class="nav-btn" data-nav="auto"><span class="icon">🚗</span><span class="label">Auto</span></button>
-  </nav>
+  <div class="nav-drawer-overlay hidden" id="navDrawerOverlay">
+    <nav class="nav-drawer" id="navDrawer">
+      <div class="nav-drawer-head">
+        <span class="nav-drawer-brand"><span class="topbar-brand-dot"></span>BeetjeOranje</span>
+        <button type="button" class="nav-drawer-close" id="navDrawerCloseBtn">✕</button>
+      </div>
+      <button type="button" class="nav-drawer-btn nav-btn active" data-nav="algemeen"><span class="icon">🏠</span><span class="label">Algemeen</span></button>
+      <button type="button" class="nav-drawer-btn nav-btn" data-nav="budget"><span class="icon">💶</span><span class="label">Budget</span></button>
+      <button type="button" class="nav-drawer-btn nav-btn" data-nav="sport"><span class="icon">🏋️</span><span class="label">Sport</span></button>
+      <button type="button" class="nav-drawer-btn nav-btn" data-nav="zzp"><span class="icon">🧾</span><span class="label">ZZP</span></button>
+      <button type="button" class="nav-drawer-btn nav-btn" data-nav="auto"><span class="icon">🚗</span><span class="label">Auto</span></button>
+    </nav>
+  </div>
 
   <!-- Brain dump: zwevende quick-capture knop, altijd bereikbaar, boven de bottom-nav
        zodat die nergens overheen valt. -->
