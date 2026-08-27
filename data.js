@@ -919,9 +919,9 @@ function renderIncomeBody() {
     const itemsHtml = items.length
       ? items.map((it) => `<div class="income-item-row"><span>${esc(it.label)}</span><span>${eurFmt(it.amount)}</span></div>`).join('')
       : '';
-    return `<div class="income-month">
-      <div class="income-month-head" style="${isCurrent ? 'text-decoration:underline;' : ''}">
-        <span>${esc(MONTH_NAMES_NL[idx])}${isCurrent ? ' (nu)' : ''}</span>
+    return `<div class="income-month${isCurrent ? ' current' : ''}">
+      <div class="income-month-head">
+        <span>${esc(MONTH_NAMES_NL[idx])}${isCurrent ? ' <span class="income-month-now-tag">nu</span>' : ''}</span>
         <span class="income-month-total${isPast ? ' past' : ''}">${eurFmt(annualIncomeMonthTotal(items))}</span>
       </div>
       ${itemsHtml}

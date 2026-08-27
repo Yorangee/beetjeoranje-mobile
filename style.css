@@ -168,7 +168,10 @@ main {
   padding: 7px 8px; border-radius: 12px;
   box-shadow: 0 4px 10px rgba(200,90,29,0.32);
 }
-.agenda-card-title { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.35; }
+.agenda-card-title {
+  flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.35;
+  overflow-wrap: break-word; word-break: break-word;
+}
 
 /* ---------- Taken: kleine blokjes i.p.v. rijen, gesplitst per groep ---------- */
 .task-group-title {
@@ -201,6 +204,7 @@ main {
 .task-tile-txt {
   font-size: 12.5px; font-weight: 700; color: var(--ink); line-height: 1.35;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  overflow-wrap: break-word; word-break: break-word;
 }
 .task-tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; }
 .task-tile-due { font-size: 10px; font-weight: 800; color: var(--muted); }
@@ -288,53 +292,64 @@ main {
 }
 .modal-sheet { position: relative; }
 
-/* ---------- Budget ---------- */
+/* ---------- Budget: grotere, dooreengesplitste "vakjes" per envelop i.p.v. platte lijstjes
+   met kleine tekst — leest een stuk prettiger op mobiel. ---------- */
 .budget-nav-arrow {
-  border: none; background: rgba(242,144,61,0.14); color: var(--orange-dark);
-  width: 24px; height: 24px; border-radius: 8px; font-size: 15px; font-weight: 800; cursor: pointer;
+  border: none; background: rgba(242,144,61,0.16); color: var(--orange-dark);
+  width: 32px; height: 32px; border-radius: 10px; font-size: 17px; font-weight: 800; cursor: pointer;
   line-height: 1;
 }
 .budget-income-row {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0 12px; font-size: 14px; font-weight: 800; color: var(--ink);
-  border-bottom: 1px dashed var(--border-soft); margin-bottom: 10px;
+  padding: 12px 14px; font-size: 16px; font-weight: 800; color: var(--ink);
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 14px;
+  margin-bottom: 14px;
 }
-.budget-envelope { margin-bottom: 14px; }
+.budget-envelope {
+  margin-bottom: 12px; padding: 14px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px;
+}
 .budget-envelope:last-child { margin-bottom: 0; }
 .budget-envelope-head {
   display: flex; justify-content: space-between; align-items: center;
-  font-size: 13px; font-weight: 800; color: var(--orange-dark); margin-bottom: 6px;
+  font-size: 15px; font-weight: 800; color: var(--orange-dark); margin-bottom: 8px;
 }
 .budget-item-row {
-  display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 6px 0;
-  font-size: 13px; font-weight: 600; border-bottom: 1px dashed var(--border-soft);
+  display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 9px 0;
+  font-size: 14.5px; font-weight: 600; border-bottom: 1px dashed var(--border-soft);
 }
 .budget-item-row:last-of-type { border-bottom: none; }
 .budget-item-row.paid { opacity: 0.5; text-decoration: line-through; }
 .budget-item-row .budget-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.budget-item-row .budget-item-amt { flex: none; }
-.budget-item-check { flex: none; width: 16px; height: 16px; accent-color: var(--orange); }
-.budget-item-del { flex: none; color: var(--muted); font-size: 12px; padding: 0 2px; cursor: pointer; }
-.budget-cat-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; margin: 8px 0 2px; }
-.budget-cat-group { margin: 6px 0; }
-.budget-cat-head {
-  display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 4px 0;
-  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+.budget-item-row .budget-item-amt { flex: none; font-weight: 800; }
+.budget-item-check { flex: none; width: 19px; height: 19px; accent-color: var(--orange); }
+.budget-item-del {
+  flex: none; color: var(--muted); font-size: 13px; cursor: pointer;
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; background: rgba(255,255,255,0.07);
 }
-.budget-cat-toggle { display: inline-block; transition: transform 0.15s var(--ease); font-size: 10px; }
+.budget-cat-label { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; margin: 10px 0 2px; }
+.budget-cat-group { margin: 8px 0; }
+.budget-cat-head {
+  display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 7px 0;
+  font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.budget-cat-toggle { display: inline-block; transition: transform 0.15s var(--ease); font-size: 11px; }
 .budget-cat-toggle.collapsed { transform: rotate(-90deg); }
 .budget-cat-name { flex: 1; }
-.budget-cat-total { font-weight: 700; opacity: 0.8; }
+.budget-cat-total { font-weight: 700; opacity: 0.85; }
 .budget-cat-items { max-height: 800px; overflow: hidden; transition: max-height 0.2s var(--ease); }
 .budget-cat-items.collapsed { max-height: 0; }
-.budget-envelope-pct, .budget-envelope-target { font-weight: 600; color: var(--muted); font-size: 11px; }
+.budget-envelope-pct, .budget-envelope-target { font-weight: 600; color: var(--muted); font-size: 12px; }
 .budget-envelope-head .over { color: var(--danger); }
-.budget-progress-track { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.10); margin: 6px 0 4px; overflow: hidden; }
-.budget-progress-fill { height: 100%; border-radius: 3px; background: var(--orange); }
+.budget-progress-track { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.10); margin: 8px 0 6px; overflow: hidden; }
+.budget-progress-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--orange-dark), var(--orange)); }
 .budget-progress-fill.over { background: var(--danger); }
 .budget-add-link {
-  border: none; background: none; color: var(--orange-dark); font-size: 12px; font-weight: 800;
-  padding: 6px 0 0; cursor: pointer;
+  display: inline-block; margin-top: 8px;
+  border: 1px solid var(--border-soft); background: var(--surface); border-radius: 10px;
+  color: var(--orange-dark); font-size: 13px; font-weight: 800;
+  padding: 8px 14px; cursor: pointer;
 }
 
 /* ---------- Brain dump ---------- */
@@ -587,16 +602,26 @@ main {
 }
 .btw-status-btn.done { background: rgba(46,125,79,0.14); color: var(--success); border-color: transparent; }
 
-.income-month { margin-bottom: 10px; }
+/* Jaaroverzicht inkomen: elke maand als eigen glazen vakje, huidige maand duidelijk
+   gemarkeerd i.p.v. een dun onderstreepje — veel makkelijker te scannen op mobiel. */
+.income-month {
+  margin-bottom: 10px; padding: 12px 14px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 14px;
+}
 .income-month:last-child { margin-bottom: 0; }
+.income-month.current { border-color: rgba(242,144,61,0.55); box-shadow: 0 0 0 1px rgba(242,144,61,0.25), var(--glass-shadow); }
 .income-month-head {
-  display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 800; color: var(--orange-dark);
-  padding: 4px 0;
+  display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: 800; color: var(--orange-dark);
+  padding: 0 0 4px;
+}
+.income-month-now-tag {
+  display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 6px;
+  background: var(--orange); color: #fff; font-size: 10px; font-weight: 800; vertical-align: middle;
 }
 .income-month-total.past { color: var(--success); }
 .income-item-row {
-  display: flex; justify-content: space-between; padding: 4px 0 4px 10px;
-  font-size: 12.5px; color: var(--ink); border-bottom: 1px dashed var(--border-soft);
+  display: flex; justify-content: space-between; padding: 7px 0 7px 10px;
+  font-size: 14px; color: var(--ink); border-bottom: 1px dashed var(--border-soft);
 }
 .income-item-row:last-of-type { border-bottom: none; }
 
