@@ -548,10 +548,14 @@ function renderBudgetView() {
       renderBudgetView();
     });
   });
-  el.querySelectorAll('.budget-cat-toggle').forEach((toggle) => {
-    toggle.addEventListener('click', () => {
-      const cat = toggle.getAttribute('data-cat');
-      const catId = toggle.getAttribute('data-cat-id');
+  // Op de hele kop klikbaar (niet alleen het pijltje) — uitklappen moet ook lukken door
+  // gewoon op de categorienaam te tikken, dat is een veel groter en makkelijker tapdoel.
+  el.querySelectorAll('.budget-cat-head').forEach((head) => {
+    head.addEventListener('click', () => {
+      const group = head.closest('.budget-cat-group');
+      if (!group) return;
+      const cat = group.getAttribute('data-cat');
+      const catId = group.getAttribute('data-cat-id');
       const monthData2 = getBudgetMonth(budgetActiveMonthKey);
       const category = (monthData2.categories[cat] || []).find((c) => c.id === catId);
       if (!category) return;
@@ -568,14 +572,19 @@ function renderBudgetView() {
 let budgetModalCat = 'vast';
 function openBudgetItemModal(cat) {
   budgetModalCat = cat;
+  incomeModalItemIdx = null;
   document.getElementById('budgetItemLabelInput').value = '';
   document.getElementById('budgetItemAmountInput').value = '';
   document.getElementById('budgetItemModalTitle').textContent = 'Item toevoegen — ' + BUDGET_ENVELOPE_LABELS[cat];
+  document.getElementById('budgetItemSaveBtn').textContent = 'Toevoegen';
+  const deleteBtn = document.getElementById('budgetItemDeleteBtn');
+  if (deleteBtn) deleteBtn.style.display = 'none';
   document.getElementById('budgetItemOverlay').setAttribute('data-mode', 'budget');
   document.getElementById('budgetItemOverlay').classList.remove('hidden');
 }
 function closeBudgetItemModal() {
   document.getElementById('budgetItemOverlay').classList.add('hidden');
+  incomeModalItemIdx = null;
 }
 function saveBudgetItemFromModal() {
   const label = document.getElementById('budgetItemLabelInput').value.trim();
@@ -585,7 +594,13 @@ function saveBudgetItemFromModal() {
 
   if (mode === 'income') {
     const monthsArr = getAnnualIncomeYear(annualIncomeActiveYear);
-    monthsArr[incomeModalMonth].push({ id: genId('ai'), label, amount: Math.round(amount * 100) / 100 });
+    const roundedAmount = Math.round(amount * 100) / 100;
+    const existing = incomeModalItemIdx !== null ? monthsArr[incomeModalMonth][incomeModalItemIdx] : null;
+    if (existing) {
+      monthsArr[incomeModalMonth][incomeModalItemIdx] = { id: existing.id, label, amount: roundedAmount };
+    } else {
+      monthsArr[incomeModalMonth].push({ id: genId('ai'), label, amount: roundedAmount });
+    }
     saveAnnualIncomeYear(annualIncomeActiveYear, monthsArr);
     closeBudgetItemModal();
     renderIncomeBody();
@@ -850,6 +865,33 @@ async function loadZzpView() {
     console.error(e);
     btwEl.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
   }
+
+  // Facturen: als deze sessie al eens opgehaald, gewoon opnieuw renderen (geen netwerk
+  // nodig). Anders eerst de laatst bekende cache tonen zodat er meteen iets staat i.p.v.
+  // "Tik op Ververs", en daarna gewoon automatisch verversen vanuit Drive op de achtergrond
+  // — net als de andere tabbladen die ook vanzelf laden bij het openen.
+  if (financeLoaded) {
+    renderFinanceYearTabs();
+    renderFinanceQuarterTabs();
+    renderFinanceBody();
+    renderOpenInvoicesBody();
+    return;
+  }
+  const cached = loadInvoicesCacheFromStorage();
+  if (cached) {
+    financeInvoicesCache = cached.invoices;
+    financeLoaded = true;
+    renderFinanceYearTabs();
+    renderFinanceQuarterTabs();
+    renderFinanceBody();
+    renderOpenInvoicesBody();
+  }
+  const signedIn = await ensureFreshGoogleToken();
+  if (signedIn) {
+    loadInvoicesFromDrive();
+  } else if (!cached) {
+    document.getElementById('finBody').innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om je facturen te zien.</div>';
+  }
 }
 
 function renderBtwBody() {
@@ -917,7 +959,11 @@ function renderIncomeBody() {
     const isCurrent = isSameYear && idx === now.getMonth();
     const isPast = annualIncomeActiveYear < now.getFullYear() || (isSameYear && idx < now.getMonth());
     const itemsHtml = items.length
-      ? items.map((it) => `<div class="income-item-row"><span>${esc(it.label)}</span><span>${eurFmt(it.amount)}</span></div>`).join('')
+      ? items.map((it, itemIdx) => `<div class="income-item-row" data-month="${idx}" data-idx="${itemIdx}">
+          <span class="income-item-label">${esc(it.label)}</span>
+          <span class="income-item-amt">${eurFmt(it.amount)}</span>
+          <span class="income-item-del" data-month="${idx}" data-idx="${itemIdx}">✕</span>
+        </div>`).join('')
       : '';
     return `<div class="income-month${isCurrent ? ' current' : ''}">
       <div class="income-month-head">
@@ -934,16 +980,58 @@ function renderIncomeBody() {
   el.querySelectorAll('.budget-add-link').forEach((btn) => {
     btn.addEventListener('click', () => openIncomeItemModal(parseInt(btn.getAttribute('data-month'), 10)));
   });
+  // Tik op een bestaande post om 'm te wijzigen; het kruisje verwijdert 'm direct — zelfde
+  // patroon als bij de budget-items, en mobielvriendelijk (groot tapdoel, geen los menu).
+  el.querySelectorAll('.income-item-row').forEach((row) => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.income-item-del')) return;
+      openIncomeItemModal(parseInt(row.getAttribute('data-month'), 10), parseInt(row.getAttribute('data-idx'), 10));
+    });
+  });
+  el.querySelectorAll('.income-item-del').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const monthIdx = parseInt(btn.getAttribute('data-month'), 10);
+      const itemIdx = parseInt(btn.getAttribute('data-idx'), 10);
+      const monthsArr2 = getAnnualIncomeYear(annualIncomeActiveYear);
+      monthsArr2[monthIdx].splice(itemIdx, 1);
+      saveAnnualIncomeYear(annualIncomeActiveYear, monthsArr2);
+      renderIncomeBody();
+    });
+  });
 }
 
 let incomeModalMonth = 0;
-function openIncomeItemModal(monthIdx) {
+let incomeModalItemIdx = null; // null = nieuwe post; getal = index van bestaande post die wordt bewerkt
+function openIncomeItemModal(monthIdx, itemIdx) {
   incomeModalMonth = monthIdx;
-  document.getElementById('budgetItemLabelInput').value = '';
-  document.getElementById('budgetItemAmountInput').value = '';
-  document.getElementById('budgetItemModalTitle').textContent = 'Inkomsten toevoegen — ' + MONTH_NAMES_NL[monthIdx];
+  incomeModalItemIdx = (typeof itemIdx === 'number' && !isNaN(itemIdx)) ? itemIdx : null;
+  const deleteBtn = document.getElementById('budgetItemDeleteBtn');
+  if (incomeModalItemIdx !== null) {
+    const monthsArr = getAnnualIncomeYear(annualIncomeActiveYear);
+    const item = (monthsArr[monthIdx] || [])[incomeModalItemIdx];
+    document.getElementById('budgetItemLabelInput').value = item ? item.label : '';
+    document.getElementById('budgetItemAmountInput').value = item ? item.amount : '';
+    document.getElementById('budgetItemModalTitle').textContent = 'Inkomsten wijzigen — ' + MONTH_NAMES_NL[monthIdx];
+    document.getElementById('budgetItemSaveBtn').textContent = 'Opslaan';
+    if (deleteBtn) deleteBtn.style.display = '';
+  } else {
+    document.getElementById('budgetItemLabelInput').value = '';
+    document.getElementById('budgetItemAmountInput').value = '';
+    document.getElementById('budgetItemModalTitle').textContent = 'Inkomsten toevoegen — ' + MONTH_NAMES_NL[monthIdx];
+    document.getElementById('budgetItemSaveBtn').textContent = 'Toevoegen';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+  }
   document.getElementById('budgetItemOverlay').classList.remove('hidden');
   document.getElementById('budgetItemOverlay').setAttribute('data-mode', 'income');
+}
+function deleteIncomeItemFromModal() {
+  if (incomeModalItemIdx === null) return;
+  const monthsArr = getAnnualIncomeYear(annualIncomeActiveYear);
+  monthsArr[incomeModalMonth].splice(incomeModalItemIdx, 1);
+  saveAnnualIncomeYear(annualIncomeActiveYear, monthsArr);
+  closeBudgetItemModal();
+  renderIncomeBody();
 }
 
 function shiftIncomeYear(delta) {
@@ -1251,6 +1339,23 @@ let financeActiveYear = String(new Date().getFullYear());
 let financeActiveQuarter = 'all';
 let financeChart = null;
 
+// Facturen ophalen uit Drive is een kostbare operatie (elke PDF wordt gedownload en met
+// pdf.js gelezen), dus die draait bewust niet bij elke tab-wissel. Om toch niet steeds
+// "Tik op Ververs" te hoeven zien, bewaren we het laatst opgehaalde resultaat lokaal en
+// tonen we dat meteen — de echte Drive-fetch ververst daarna gewoon op de achtergrond.
+const INVOICES_CACHE_KEY = 'beetjeoranje-mobile-invoices-cache-v1';
+function loadInvoicesCacheFromStorage() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(INVOICES_CACHE_KEY));
+    if (raw && Array.isArray(raw.invoices)) return raw;
+  } catch (e) { /* negeren — cache is een bonus, geen vereiste */ }
+  return null;
+}
+function saveInvoicesCacheToStorage(invoices) {
+  try { localStorage.setItem(INVOICES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), invoices })); }
+  catch (e) { /* bijv. volle opslag — negeren */ }
+}
+
 async function loadInvoicesFromDrive() {
   if (financeLoading) return;
   financeLoading = true;
@@ -1281,6 +1386,7 @@ async function loadInvoicesFromDrive() {
     if (allPdfs.length === 0) {
       financeInvoicesCache = [];
       financeLoaded = true;
+      saveInvoicesCacheToStorage(financeInvoicesCache);
       renderFinanceYearTabs();
       renderFinanceQuarterTabs();
       renderFinanceBody();
@@ -1320,6 +1426,7 @@ async function loadInvoicesFromDrive() {
 
     financeInvoicesCache = invoices.filter(Boolean);
     financeLoaded = true;
+    saveInvoicesCacheToStorage(financeInvoicesCache);
 
     // Als er wél PDF's gevonden werden maar GEEN ervan gelezen kon worden, is
     // "geen facturen gevonden" misleidend — toon dan de echte fout.

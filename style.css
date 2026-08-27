@@ -620,10 +620,17 @@ main {
 }
 .income-month-total.past { color: var(--success); }
 .income-item-row {
-  display: flex; justify-content: space-between; padding: 7px 0 7px 10px;
+  display: flex; align-items: center; gap: 8px; padding: 9px 0 9px 10px; cursor: pointer;
   font-size: 14px; color: var(--ink); border-bottom: 1px dashed var(--border-soft);
 }
 .income-item-row:last-of-type { border-bottom: none; }
+.income-item-row .income-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.income-item-row .income-item-amt { flex: none; font-weight: 700; }
+.income-item-del {
+  flex: none; color: var(--muted); font-size: 13px; cursor: pointer;
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; background: rgba(255,255,255,0.07);
+}
 
 /* ---------- Auto ---------- */
 .apk-summary { display: flex; flex-direction: column; gap: 8px; }
