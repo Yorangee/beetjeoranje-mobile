@@ -629,7 +629,9 @@ function getWeekMondayYmd(d) {
   const monday = new Date(date);
   monday.setDate(date.getDate() + diff);
   monday.setHours(0, 0, 0, 0);
-  return ymd(monday);
+  // Let op: geen aanroep van de globale ymd()-helper (die staat in app.js, dat pas
+  // ná dit script wordt geladen) — anders faalt dit bij top-level init in data.js.
+  return monday.getFullYear() + '-' + String(monday.getMonth() + 1).padStart(2, '0') + '-' + String(monday.getDate()).padStart(2, '0');
 }
 const MONTH_NAMES_NL = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 
@@ -925,10 +927,12 @@ function renderTrainingBody() {
   el.innerHTML = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => {
     const name = (names[i] || '').trim();
     const pr = trainingLastBestKg(trainingActiveDay, i);
+    // De naam- en kg-kolom blijven allebei altijd staan (ook zonder invulling), met
+    // "Oefening N" resp. een streepje als placeholder — zo schuift de rij niet raar op.
     return `<div class="training-ex-row">
       <span class="training-ex-num">${i + 1}</span>
-      <span class="training-ex-name${name ? '' : ' empty'}">${name ? esc(name) : '— leeg —'}</span>
-      ${pr != null ? `<span class="training-ex-pr">${trainingFmtKg(pr)} kg</span>` : ''}
+      <span class="training-ex-name${name ? '' : ' empty'}">${name ? esc(name) : 'Oefening ' + (i + 1)}</span>
+      <span class="training-ex-pr">${pr != null ? trainingFmtKg(pr) + ' kg' : '—'}</span>
     </div>`;
   }).join('');
 }
@@ -987,10 +991,21 @@ function trainingUpdateTimer() {
 }
 
 function startTrainingSession() {
+  // Het trainingsschema (welke 8 oefeningen) staat los van de week — dat is bewust één
+  // vaste lijst per dag die voor elke week hetzelfde is, alleen de ingevoerde kg's per
+  // sessie verschillen per week. Daarom mag een training pas starten als alle 8 plekken
+  // voor de gekozen dag zijn ingevuld.
+  const schema = getTrainingSchema();
+  const names = schema[trainingActiveDay] || [];
+  const filledCount = names.filter((n) => (n || '').trim()).length;
+  if (filledCount < TRAINING_EX_COUNT) {
+    alert('Vul eerst alle ' + TRAINING_EX_COUNT + ' oefeningen in voor ' + TRAINING_DAY_LABELS[trainingActiveDay] + ' (via het potlood-icoon) voordat je een training kunt starten.');
+    return;
+  }
+
   trainingSessionDay = trainingActiveDay;
   trainingSessionWeek = trainingActiveWeekMonday;
   trainingSessionExIndex = 0;
-  const schema = getTrainingSchema();
   trainingSessionNames = (schema[trainingSessionDay] || []).slice();
   const log = getTrainingLog();
   const weekLog = (log[trainingSessionWeek] && log[trainingSessionWeek][trainingSessionDay]) || [];
