@@ -644,6 +644,9 @@ async function loadSportView() {
     renderWeightBody();
     loadNutritionPlan();
     renderNutritionBody();
+    renderTrainingWeekLabel();
+    renderTrainingDayLabel();
+    renderTrainingBody();
   } catch (e) {
     console.error(e);
     el.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
@@ -836,6 +839,263 @@ function addNutritionDay() {
   nutritionActiveIndex = nutritionPlan.length - 1;
   saveNutritionPlan();
   renderNutritionBody();
+}
+
+// ================= SPORT: TRAININGSSCHEMA =================
+const TRAINING_SCHEMA_KEY = 'beetjeoranje-dashboard-training-schema-v1';
+const TRAINING_LOG_KEY = 'beetjeoranje-dashboard-training-log-v1';
+const TRAINING_EX_COUNT = 8;
+const TRAINING_SET_COUNT = 3;
+const TRAINING_DAY_KEYS = ['dag1', 'dag2'];
+const TRAINING_DAY_LABELS = { dag1: 'Dag 1', dag2: 'Dag 2' };
+
+function isoWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function defaultTrainingSchema() {
+  return {
+    dag1: Array.from({ length: TRAINING_EX_COUNT }, () => ''),
+    dag2: Array.from({ length: TRAINING_EX_COUNT }, () => '')
+  };
+}
+function getTrainingSchema() {
+  const raw = getSharedKey(TRAINING_SCHEMA_KEY, null);
+  if (raw && Array.isArray(raw.dag1) && Array.isArray(raw.dag2)) return raw;
+  return defaultTrainingSchema();
+}
+function saveTrainingSchema(schema) { setSharedKey(TRAINING_SCHEMA_KEY, schema); }
+
+// Log-structuur: { [maandag-ymd]: { dag1: [ {kgs:[n,n,n], done} | null, ... 8 plekken ], dag2: [...] } }
+function getTrainingLog() { return getSharedKey(TRAINING_LOG_KEY, {}); }
+function saveTrainingLog(log) { setSharedKey(TRAINING_LOG_KEY, log); }
+
+// "Laatste hoogste kg" voor een oefening-plek: zoekt (over alle weken, nieuwste eerst) de
+// meest recente week waarin die plek een ingevulde set had, en pakt daarvan de hoogste kg.
+function trainingLastBestKg(dayKey, exIdx) {
+  const log = getTrainingLog();
+  const weeks = Object.keys(log).sort().reverse();
+  for (const wk of weeks) {
+    const entry = log[wk] && log[wk][dayKey] && log[wk][dayKey][exIdx];
+    if (entry && Array.isArray(entry.kgs)) {
+      const filled = entry.kgs.filter((n) => typeof n === 'number' && !isNaN(n) && n > 0);
+      if (filled.length) return Math.max(...filled);
+    }
+  }
+  return null;
+}
+
+let trainingActiveWeekMonday = getWeekMondayYmd(new Date());
+let trainingActiveDay = 'dag1';
+
+function renderTrainingWeekLabel() {
+  const el = document.getElementById('trainingWeekLabel');
+  if (!el) return;
+  const d = new Date(trainingActiveWeekMonday + 'T00:00:00');
+  const isCurrent = trainingActiveWeekMonday === getWeekMondayYmd(new Date());
+  el.textContent = 'Week ' + isoWeekNumber(d) + ' · ' + d.getFullYear() + (isCurrent ? ' (nu)' : '');
+}
+function renderTrainingDayLabel() {
+  const el = document.getElementById('trainingDayLabel');
+  if (el) el.textContent = TRAINING_DAY_LABELS[trainingActiveDay];
+}
+function shiftTrainingWeek(delta) {
+  const d = new Date(trainingActiveWeekMonday + 'T00:00:00');
+  d.setDate(d.getDate() + delta * 7);
+  trainingActiveWeekMonday = getWeekMondayYmd(d);
+  renderTrainingWeekLabel();
+  renderTrainingBody();
+}
+function shiftTrainingDay(delta) {
+  const idx = TRAINING_DAY_KEYS.indexOf(trainingActiveDay);
+  trainingActiveDay = TRAINING_DAY_KEYS[(idx + delta + TRAINING_DAY_KEYS.length) % TRAINING_DAY_KEYS.length];
+  renderTrainingDayLabel();
+  renderTrainingBody();
+}
+
+function renderTrainingBody() {
+  const el = document.getElementById('trainingBody');
+  if (!el) return;
+  const schema = getTrainingSchema();
+  const names = schema[trainingActiveDay] || [];
+  el.innerHTML = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => {
+    const name = (names[i] || '').trim();
+    const pr = trainingLastBestKg(trainingActiveDay, i);
+    return `<div class="training-ex-row">
+      <span class="training-ex-num">${i + 1}</span>
+      <span class="training-ex-name${name ? '' : ' empty'}">${name ? esc(name) : '— leeg —'}</span>
+      ${pr != null ? `<span class="training-ex-pr">${trainingFmtKg(pr)} kg</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function trainingFmtKg(n) {
+  return (Math.round(n * 10) / 10).toString().replace('.', ',');
+}
+
+// ---------- Oefeningen bewerken (potlood) ----------
+function openTrainingEditModal() {
+  const schema = getTrainingSchema();
+  const names = schema[trainingActiveDay] || [];
+  document.getElementById('trainingEditTitle').textContent = 'Oefeningen bewerken — ' + TRAINING_DAY_LABELS[trainingActiveDay];
+  const fieldsEl = document.getElementById('trainingEditFields');
+  fieldsEl.innerHTML = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => `
+    <div class="modal-field">
+      <label for="trainingExInput${i}">Oefening ${i + 1}</label>
+      <input type="text" id="trainingExInput${i}" value="${esc(names[i] || '')}" placeholder="Bijv. Squat">
+    </div>`).join('');
+  document.getElementById('trainingEditOverlay').classList.remove('hidden');
+}
+function closeTrainingEditModal() {
+  document.getElementById('trainingEditOverlay').classList.add('hidden');
+}
+function saveTrainingEditModal() {
+  const schema = getTrainingSchema();
+  const names = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => {
+    const inp = document.getElementById('trainingExInput' + i);
+    return inp ? inp.value.trim() : '';
+  });
+  schema[trainingActiveDay] = names;
+  saveTrainingSchema(schema);
+  closeTrainingEditModal();
+  renderTrainingBody();
+}
+
+// ---------- Trainingssessie (schermvullend) ----------
+let trainingSessionDay = 'dag1';
+let trainingSessionWeek = '';
+let trainingSessionExIndex = 0;
+let trainingSessionEntries = []; // werkkopie van de 8 plekken voor deze week+dag
+let trainingSessionNames = [];
+let trainingSessionStartedAt = 0;
+let trainingSessionTimerHandle = null;
+
+function trainingFormatTimer(totalSec) {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+function trainingUpdateTimer() {
+  const el = document.getElementById('trainingSessionTimer');
+  if (!el) return;
+  const sec = Math.max(0, Math.floor((Date.now() - trainingSessionStartedAt) / 1000));
+  el.textContent = trainingFormatTimer(sec);
+}
+
+function startTrainingSession() {
+  trainingSessionDay = trainingActiveDay;
+  trainingSessionWeek = trainingActiveWeekMonday;
+  trainingSessionExIndex = 0;
+  const schema = getTrainingSchema();
+  trainingSessionNames = (schema[trainingSessionDay] || []).slice();
+  const log = getTrainingLog();
+  const weekLog = (log[trainingSessionWeek] && log[trainingSessionWeek][trainingSessionDay]) || [];
+  trainingSessionEntries = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => {
+    const existing = weekLog[i];
+    return existing ? { kgs: (existing.kgs || []).slice(0, TRAINING_SET_COUNT), done: !!existing.done } : { kgs: [], done: false };
+  });
+
+  document.getElementById('trainingSessionOverlay').classList.remove('hidden');
+  trainingSessionStartedAt = Date.now();
+  trainingUpdateTimer();
+  if (trainingSessionTimerHandle) clearInterval(trainingSessionTimerHandle);
+  trainingSessionTimerHandle = setInterval(trainingUpdateTimer, 1000);
+
+  renderTrainingSessionExercise();
+}
+
+function closeTrainingSession() {
+  trainingSaveCurrentSetInputs();
+  trainingPersistSessionEntries();
+  if (trainingSessionTimerHandle) { clearInterval(trainingSessionTimerHandle); trainingSessionTimerHandle = null; }
+  document.getElementById('trainingSessionOverlay').classList.add('hidden');
+  renderTrainingBody(); // PR's kunnen net bijgewerkt zijn
+}
+
+function trainingPersistSessionEntries() {
+  const log = getTrainingLog();
+  if (!log[trainingSessionWeek]) log[trainingSessionWeek] = {};
+  log[trainingSessionWeek][trainingSessionDay] = trainingSessionEntries;
+  saveTrainingLog(log);
+}
+
+// Leest de 3 zichtbare kg-invoervelden en schrijft ze terug naar de werkkopie — nodig vóór
+// het wisselen van oefening of het sluiten van de sessie, anders gaat een net ingetypt
+// getal verloren.
+function trainingSaveCurrentSetInputs() {
+  const entry = trainingSessionEntries[trainingSessionExIndex];
+  if (!entry) return;
+  const kgs = [];
+  for (let s = 0; s < TRAINING_SET_COUNT; s++) {
+    const inp = document.getElementById('trainingSetInput' + s);
+    const val = inp ? parseFloat((inp.value || '').replace(',', '.')) : NaN;
+    kgs.push(isNaN(val) ? null : val);
+  }
+  entry.kgs = kgs;
+}
+
+function renderTrainingSessionExercise() {
+  const name = (trainingSessionNames[trainingSessionExIndex] || '').trim();
+  document.getElementById('trainingExTitle').textContent = name || ('Oefening ' + (trainingSessionExIndex + 1));
+
+  const prevBtn = document.getElementById('trainingExPrevBtn');
+  const nextBtn = document.getElementById('trainingExNextBtn');
+  if (prevBtn) prevBtn.disabled = trainingSessionExIndex === 0;
+  if (nextBtn) nextBtn.disabled = trainingSessionExIndex === TRAINING_EX_COUNT - 1;
+
+  const entry = trainingSessionEntries[trainingSessionExIndex] || { kgs: [], done: false };
+  const setsEl = document.getElementById('trainingExSets');
+  setsEl.innerHTML = Array.from({ length: TRAINING_SET_COUNT }, (_, s) => `
+    <div class="training-set-col">
+      <span class="training-set-label">Set ${s + 1}</span>
+      <input type="number" inputmode="decimal" step="0.5" class="training-set-input" id="trainingSetInput${s}"
+        value="${entry.kgs[s] != null ? entry.kgs[s] : ''}" placeholder="kg">
+    </div>`).join('');
+
+  const checkBtn = document.getElementById('trainingExCheckBtn');
+  if (checkBtn) checkBtn.classList.toggle('done', !!entry.done);
+}
+
+function trainingGoToExercise(delta) {
+  trainingSaveCurrentSetInputs();
+  trainingPersistSessionEntries();
+  const next = trainingSessionExIndex + delta;
+  if (next < 0 || next >= TRAINING_EX_COUNT) return;
+  trainingSessionExIndex = next;
+  renderTrainingSessionExercise();
+}
+
+function trainingMarkExerciseDone() {
+  trainingSaveCurrentSetInputs();
+  const entry = trainingSessionEntries[trainingSessionExIndex];
+  entry.done = true;
+  trainingPersistSessionEntries();
+  document.getElementById('trainingExCheckBtn').classList.add('done');
+  trainingSpawnConfetti();
+  setTimeout(() => {
+    if (trainingSessionExIndex < TRAINING_EX_COUNT - 1) trainingGoToExercise(1);
+  }, 850);
+}
+
+function trainingSpawnConfetti() {
+  const layer = document.getElementById('trainingConfettiLayer');
+  if (!layer) return;
+  const colors = ['#F2903D', '#FFC98A', '#FF6B5E', '#6BD99A', '#6BD3C7', '#F0C766'];
+  for (let i = 0; i < 26; i++) {
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    piece.style.left = (Math.random() * 100) + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = (Math.random() * 0.25) + 's';
+    piece.style.animationDuration = (1 + Math.random() * 0.6) + 's';
+    piece.style.transform = 'rotate(' + Math.floor(Math.random() * 360) + 'deg)';
+    layer.appendChild(piece);
+    piece.addEventListener('animationend', () => piece.remove());
+  }
 }
 
 // ================= ZZP: BTW =================

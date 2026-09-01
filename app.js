@@ -97,7 +97,7 @@ function setupNav() {
       if (sharedDataLoaded) {
         if (target === 'algemeen') renderNotesView();
         if (target === 'budget') renderBudgetView();
-        if (target === 'sport') { renderWeightBody(); loadNutritionPlan(); renderNutritionBody(); }
+        if (target === 'sport') { renderWeightBody(); loadNutritionPlan(); renderNutritionBody(); renderTrainingWeekLabel(); renderTrainingDayLabel(); renderTrainingBody(); }
         if (target === 'zzp') { renderBtwBody(); renderIncomeBody(); }
         if (target === 'auto') { renderApkBody(); renderCarVisitsBody(); }
         return;
@@ -153,6 +153,23 @@ function setupSport() {
   document.getElementById('nutriPrevBtn').addEventListener('click', () => shiftNutritionDay(-1));
   document.getElementById('nutriNextBtn').addEventListener('click', () => shiftNutritionDay(1));
   document.getElementById('nutriAddDayBtn').addEventListener('click', addNutritionDay);
+
+  // ---------- Trainingsschema ----------
+  document.getElementById('trainingWeekPrevBtn').addEventListener('click', () => shiftTrainingWeek(-1));
+  document.getElementById('trainingWeekNextBtn').addEventListener('click', () => shiftTrainingWeek(1));
+  document.getElementById('trainingDayPrevBtn').addEventListener('click', () => shiftTrainingDay(-1));
+  document.getElementById('trainingDayNextBtn').addEventListener('click', () => shiftTrainingDay(1));
+
+  document.getElementById('trainingEditBtn').addEventListener('click', openTrainingEditModal);
+  document.getElementById('trainingEditCloseBtn').addEventListener('click', closeTrainingEditModal);
+  document.getElementById('trainingEditOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeTrainingEditModal(); });
+  document.getElementById('trainingEditSaveBtn').addEventListener('click', saveTrainingEditModal);
+
+  document.getElementById('trainingPlayBtn').addEventListener('click', startTrainingSession);
+  document.getElementById('trainingSessionCloseBtn').addEventListener('click', closeTrainingSession);
+  document.getElementById('trainingExPrevBtn').addEventListener('click', () => trainingGoToExercise(-1));
+  document.getElementById('trainingExNextBtn').addEventListener('click', () => trainingGoToExercise(1));
+  document.getElementById('trainingExCheckBtn').addEventListener('click', trainingMarkExerciseDone);
 }
 
 // ---------- ZZP: knoppen ----------
