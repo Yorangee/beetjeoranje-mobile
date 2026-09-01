@@ -851,6 +851,171 @@ const TRAINING_SET_COUNT = 3;
 const TRAINING_DAY_KEYS = ['dag1', 'dag2'];
 const TRAINING_DAY_LABELS = { dag1: 'Dag 1', dag2: 'Dag 2' };
 
+// Kleine bibliotheek met lijntekening-illustraties per oefeningtype (zelfde stijl/kleuren als
+// de oude vaste "dumbbell"-illustratie: #FFC98A voor gewrichten/gewichten, #F2903D voor
+// ledematen/stang). trainingExerciseIllustration(name) matcht op Nederlandse/Engelse
+// trefwoorden in de oefeningnaam en valt terug op de generieke dumbbell als niks matcht.
+const TRAINING_ILLUSTRATIONS = {
+  generic: `
+    <rect x="14" y="48" width="14" height="24" rx="4" fill="#FFC98A"/>
+    <rect x="92" y="48" width="14" height="24" rx="4" fill="#FFC98A"/>
+    <rect x="24" y="40" width="8" height="40" rx="3" fill="#F2903D"/>
+    <rect x="88" y="40" width="8" height="40" rx="3" fill="#F2903D"/>
+    <line x1="32" y1="60" x2="88" y2="60" stroke="#F2903D" stroke-width="7"/>`,
+  bicepCurl: `
+    <circle cx="60" cy="26" r="9" fill="#FFC98A"/>
+    <line x1="60" y1="35" x2="60" y2="76" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="76" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="76" x2="74" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="42" x2="40" y2="56" stroke="#F2903D" stroke-width="6"/>
+    <line x1="40" y1="56" x2="48" y2="36" stroke="#F2903D" stroke-width="6"/>
+    <circle cx="48" cy="36" r="7" fill="#FFC98A"/>
+    <line x1="60" y1="42" x2="80" y2="56" stroke="#F2903D" stroke-width="6"/>
+    <line x1="80" y1="56" x2="72" y2="36" stroke="#F2903D" stroke-width="6"/>
+    <circle cx="72" cy="36" r="7" fill="#FFC98A"/>`,
+  triceps: `
+    <circle cx="60" cy="26" r="9" fill="#FFC98A"/>
+    <line x1="60" y1="35" x2="60" y2="76" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="76" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="76" x2="74" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="52" y1="40" x2="46" y2="20" stroke="#F2903D" stroke-width="6"/>
+    <line x1="46" y1="20" x2="60" y2="34" stroke="#F2903D" stroke-width="6"/>
+    <line x1="68" y1="40" x2="74" y2="20" stroke="#F2903D" stroke-width="6"/>
+    <line x1="74" y1="20" x2="60" y2="34" stroke="#F2903D" stroke-width="6"/>
+    <rect x="50" y="26" width="20" height="10" rx="4" fill="#FFC98A"/>`,
+  squat: `
+    <circle cx="60" cy="24" r="9" fill="#FFC98A"/>
+    <line x1="60" y1="33" x2="60" y2="64" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="64" x2="42" y2="80" stroke="#F2903D" stroke-width="7"/>
+    <line x1="42" y1="80" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="64" x2="78" y2="80" stroke="#F2903D" stroke-width="7"/>
+    <line x1="78" y1="80" x2="74" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="34" y1="34" x2="86" y2="34" stroke="#F2903D" stroke-width="7"/>
+    <circle cx="34" cy="34" r="8" fill="#FFC98A"/>
+    <circle cx="86" cy="34" r="8" fill="#FFC98A"/>
+    <line x1="60" y1="33" x2="40" y2="46" stroke="#F2903D" stroke-width="6"/>
+    <line x1="60" y1="33" x2="80" y2="46" stroke="#F2903D" stroke-width="6"/>`,
+  deadlift: `
+    <circle cx="46" cy="30" r="9" fill="#FFC98A"/>
+    <line x1="46" y1="39" x2="66" y2="70" stroke="#F2903D" stroke-width="7"/>
+    <line x1="66" y1="70" x2="60" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="66" y1="70" x2="80" y2="106" stroke="#F2903D" stroke-width="7"/>
+    <line x1="46" y1="46" x2="40" y2="90" stroke="#F2903D" stroke-width="6"/>
+    <line x1="52" y1="50" x2="46" y2="90" stroke="#F2903D" stroke-width="6"/>
+    <line x1="30" y1="92" x2="56" y2="92" stroke="#F2903D" stroke-width="7"/>
+    <circle cx="30" cy="92" r="8" fill="#FFC98A"/>
+    <circle cx="56" cy="92" r="8" fill="#FFC98A"/>`,
+  benchPress: `
+    <circle cx="18" cy="70" r="9" fill="#FFC98A"/>
+    <line x1="27" y1="70" x2="90" y2="70" stroke="#F2903D" stroke-width="7"/>
+    <line x1="50" y1="70" x2="50" y2="38" stroke="#F2903D" stroke-width="6"/>
+    <line x1="70" y1="70" x2="70" y2="38" stroke="#F2903D" stroke-width="6"/>
+    <line x1="30" y1="38" x2="90" y2="38" stroke="#F2903D" stroke-width="7"/>
+    <circle cx="30" cy="38" r="8" fill="#FFC98A"/>
+    <circle cx="90" cy="38" r="8" fill="#FFC98A"/>`,
+  shoulderPress: `
+    <circle cx="60" cy="30" r="9" fill="#FFC98A"/>
+    <line x1="60" y1="39" x2="60" y2="80" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="80" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="80" x2="74" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="44" x2="40" y2="20" stroke="#F2903D" stroke-width="6"/>
+    <line x1="60" y1="44" x2="80" y2="20" stroke="#F2903D" stroke-width="6"/>
+    <circle cx="40" cy="20" r="7" fill="#FFC98A"/>
+    <circle cx="80" cy="20" r="7" fill="#FFC98A"/>`,
+  pulldown: `
+    <line x1="24" y1="24" x2="96" y2="24" stroke="#F2903D" stroke-width="7"/>
+    <circle cx="60" cy="46" r="9" fill="#FFC98A"/>
+    <line x1="60" y1="55" x2="60" y2="88" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="88" x2="48" y2="110" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="88" x2="72" y2="110" stroke="#F2903D" stroke-width="7"/>
+    <line x1="58" y1="50" x2="30" y2="26" stroke="#F2903D" stroke-width="6"/>
+    <line x1="62" y1="50" x2="90" y2="26" stroke="#F2903D" stroke-width="6"/>
+    <circle cx="30" cy="26" r="6" fill="#FFC98A"/>
+    <circle cx="90" cy="26" r="6" fill="#FFC98A"/>`,
+  row: `
+    <circle cx="42" cy="30" r="9" fill="#FFC98A"/>
+    <line x1="42" y1="39" x2="66" y2="66" stroke="#F2903D" stroke-width="7"/>
+    <line x1="66" y1="66" x2="58" y2="106" stroke="#F2903D" stroke-width="7"/>
+    <line x1="66" y1="66" x2="80" y2="104" stroke="#F2903D" stroke-width="7"/>
+    <line x1="50" y1="48" x2="80" y2="54" stroke="#F2903D" stroke-width="6"/>
+    <circle cx="80" cy="54" r="7" fill="#FFC98A"/>
+    <line x1="54" y1="56" x2="86" y2="66" stroke="#F2903D" stroke-width="6"/>
+    <circle cx="86" cy="66" r="7" fill="#FFC98A"/>`,
+  plank: `
+    <line x1="18" y1="70" x2="98" y2="60" stroke="#F2903D" stroke-width="7"/>
+    <circle cx="14" cy="72" r="9" fill="#FFC98A"/>
+    <line x1="30" y1="68" x2="30" y2="94" stroke="#F2903D" stroke-width="6"/>
+    <line x1="94" y1="60" x2="98" y2="94" stroke="#F2903D" stroke-width="6"/>`,
+  lunge: `
+    <circle cx="52" cy="26" r="9" fill="#FFC98A"/>
+    <line x1="52" y1="35" x2="58" y2="66" stroke="#F2903D" stroke-width="7"/>
+    <line x1="58" y1="66" x2="42" y2="82" stroke="#F2903D" stroke-width="7"/>
+    <line x1="42" y1="82" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
+    <line x1="58" y1="66" x2="80" y2="76" stroke="#F2903D" stroke-width="7"/>
+    <line x1="80" y1="76" x2="94" y2="102" stroke="#F2903D" stroke-width="7"/>
+    <line x1="52" y1="42" x2="34" y2="56" stroke="#F2903D" stroke-width="6"/>
+    <line x1="52" y1="42" x2="70" y2="56" stroke="#F2903D" stroke-width="6"/>`,
+  legPress: `
+    <circle cx="26" cy="40" r="9" fill="#FFC98A"/>
+    <line x1="26" y1="49" x2="46" y2="70" stroke="#F2903D" stroke-width="7"/>
+    <line x1="46" y1="70" x2="46" y2="96" stroke="#F2903D" stroke-width="7"/>
+    <line x1="46" y1="70" x2="80" y2="66" stroke="#F2903D" stroke-width="7"/>
+    <line x1="80" y1="66" x2="100" y2="52" stroke="#F2903D" stroke-width="7"/>
+    <line x1="100" y1="30" x2="100" y2="74" stroke="#F2903D" stroke-width="7"/>`,
+  chestFly: `
+    <circle cx="18" cy="66" r="9" fill="#FFC98A"/>
+    <line x1="27" y1="66" x2="90" y2="66" stroke="#F2903D" stroke-width="7"/>
+    <line x1="50" y1="66" x2="30" y2="42" stroke="#F2903D" stroke-width="6"/>
+    <line x1="70" y1="66" x2="90" y2="42" stroke="#F2903D" stroke-width="6"/>
+    <circle cx="30" cy="42" r="7" fill="#FFC98A"/>
+    <circle cx="90" cy="42" r="7" fill="#FFC98A"/>`,
+  calfRaise: `
+    <circle cx="60" cy="24" r="9" fill="#FFC98A"/>
+    <line x1="60" y1="33" x2="60" y2="72" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="72" x2="50" y2="100" stroke="#F2903D" stroke-width="7"/>
+    <line x1="60" y1="72" x2="70" y2="100" stroke="#F2903D" stroke-width="7"/>
+    <line x1="46" y1="106" x2="54" y2="106" stroke="#F2903D" stroke-width="5"/>
+    <line x1="66" y1="106" x2="74" y2="106" stroke="#F2903D" stroke-width="5"/>`,
+  legExtension: `
+    <circle cx="30" cy="30" r="9" fill="#FFC98A"/>
+    <line x1="30" y1="39" x2="46" y2="66" stroke="#F2903D" stroke-width="7"/>
+    <line x1="46" y1="66" x2="46" y2="92" stroke="#F2903D" stroke-width="7"/>
+    <line x1="46" y1="66" x2="86" y2="60" stroke="#F2903D" stroke-width="7"/>
+    <circle cx="90" cy="60" r="6" fill="#FFC98A"/>`,
+  situp: `
+    <line x1="20" y1="86" x2="80" y2="86" stroke="#F2903D" stroke-width="6"/>
+    <circle cx="46" cy="56" r="9" fill="#FFC98A"/>
+    <line x1="46" y1="65" x2="50" y2="86" stroke="#F2903D" stroke-width="7"/>
+    <line x1="50" y1="86" x2="40" y2="104" stroke="#F2903D" stroke-width="7"/>
+    <line x1="50" y1="86" x2="70" y2="98" stroke="#F2903D" stroke-width="7"/>`
+};
+
+// Matcht een oefeningnaam (NL/EN trefwoorden) op een illustratie uit TRAINING_ILLUSTRATIONS.
+// Volgorde is belangrijk: specifieke/samengestelde termen staan vóór generieke ("curl" alleen
+// als laatste, anders zou "leg curl" onterecht als bicep curl herkend worden).
+function trainingExerciseIllustration(name) {
+  const n = (name || '').toLowerCase();
+  const has = (...keys) => keys.some((k) => n.includes(k));
+
+  if (has('squat', 'hurk')) return TRAINING_ILLUSTRATIONS.squat;
+  if (has('deadlift', 'dead lift')) return TRAINING_ILLUSTRATIONS.deadlift;
+  if (has('bench press', 'bankdruk', 'chest press', 'borstpers', 'borst pers')) return TRAINING_ILLUSTRATIONS.benchPress;
+  if (has('shoulder press', 'overhead press', 'schouderdruk', 'military press', 'militaire pers')) return TRAINING_ILLUSTRATIONS.shoulderPress;
+  if (has('pulldown', 'pull down', 'pull-up', 'pullup', 'chin-up', 'chinup', 'optrek')) return TRAINING_ILLUSTRATIONS.pulldown;
+  if (has('row', 'roeien', 'roei')) return TRAINING_ILLUSTRATIONS.row;
+  if (has('plank', 'planken')) return TRAINING_ILLUSTRATIONS.plank;
+  if (has('lunge', 'uitval')) return TRAINING_ILLUSTRATIONS.lunge;
+  if (has('leg press', 'beenpers', 'been pers')) return TRAINING_ILLUSTRATIONS.legPress;
+  if (has('fly', 'flye', 'vlinder')) return TRAINING_ILLUSTRATIONS.chestFly;
+  if (has('calf', 'kuit')) return TRAINING_ILLUSTRATIONS.calfRaise;
+  if (has('leg extension', 'leg curl', 'beenstrek', 'been curl', 'hamstring')) return TRAINING_ILLUSTRATIONS.legExtension;
+  if (has('tricep', 'triceps', 'kickback', 'skullcrusher', 'skull crusher')) return TRAINING_ILLUSTRATIONS.triceps;
+  if (has('crunch', 'sit-up', 'situp', 'buikspier')) return TRAINING_ILLUSTRATIONS.situp;
+  if (has('bicep', 'curl')) return TRAINING_ILLUSTRATIONS.bicepCurl;
+
+  return TRAINING_ILLUSTRATIONS.generic;
+}
+
 function isoWeekNumber(d) {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dayNum = date.getUTCDay() || 7;
@@ -905,6 +1070,12 @@ function renderTrainingDayLabel() {
   const el = document.getElementById('trainingDayLabel');
   if (el) el.textContent = TRAINING_DAY_LABELS[trainingActiveDay];
 }
+// Meteen bij het laden van het script invullen — anders blijven de labels leeg totdat de
+// gebruiker op een pijltje klikt (die render pas dan opnieuw aan) of totdat sport-tab-navigatie
+// de shared data heeft opgehaald. De DOM bestaat al op dit punt (dit script staat onderaan de
+// body), dus dit werkt altijd meteen, ongeacht of/wanneer de sport-tab wordt geopend.
+renderTrainingWeekLabel();
+renderTrainingDayLabel();
 function shiftTrainingWeek(delta) {
   const d = new Date(trainingActiveWeekMonday + 'T00:00:00');
   d.setDate(d.getDate() + delta * 7);
@@ -977,6 +1148,10 @@ let trainingSessionEntries = []; // werkkopie van de 8 plekken voor deze week+da
 let trainingSessionNames = [];
 let trainingSessionStartedAt = 0;
 let trainingSessionTimerHandle = null;
+// Beste kg per plek zoals die was VOORDAT deze sessie begon — vastgelegd bij het starten, zodat
+// we aan het eind kunnen laten zien of er vooruitgang zit t.o.v. eerdere weken (i.p.v. t.o.v.
+// wat er tijdens deze sessie zelf al is opgeslagen).
+let trainingSessionBaselinePR = [];
 
 function trainingFormatTimer(totalSec) {
   const m = Math.floor(totalSec / 60);
@@ -1013,6 +1188,7 @@ function startTrainingSession() {
     const existing = weekLog[i];
     return existing ? { kgs: (existing.kgs || []).slice(0, TRAINING_SET_COUNT), done: !!existing.done } : { kgs: [], done: false };
   });
+  trainingSessionBaselinePR = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => trainingLastBestKg(trainingSessionDay, i));
 
   document.getElementById('trainingSessionOverlay').classList.remove('hidden');
   trainingSessionStartedAt = Date.now();
@@ -1057,6 +1233,9 @@ function renderTrainingSessionExercise() {
   const name = (trainingSessionNames[trainingSessionExIndex] || '').trim();
   document.getElementById('trainingExTitle').textContent = name || ('Oefening ' + (trainingSessionExIndex + 1));
 
+  const illustrationEl = document.getElementById('trainingExIllustrationBody');
+  if (illustrationEl) illustrationEl.innerHTML = trainingExerciseIllustration(name);
+
   const prevBtn = document.getElementById('trainingExPrevBtn');
   const nextBtn = document.getElementById('trainingExNextBtn');
   if (prevBtn) prevBtn.disabled = trainingSessionExIndex === 0;
@@ -1087,13 +1266,90 @@ function trainingGoToExercise(delta) {
 function trainingMarkExerciseDone() {
   trainingSaveCurrentSetInputs();
   const entry = trainingSessionEntries[trainingSessionExIndex];
+  if (!entry) return;
+  const checkBtn = document.getElementById('trainingExCheckBtn');
+
+  // Nogmaals drukken op een al afgevinkte oefening zet 'm weer terug naar normaal (correctie),
+  // zonder confetti/pop-up/auto-doorschakelen.
+  if (entry.done) {
+    entry.done = false;
+    trainingPersistSessionEntries();
+    if (checkBtn) checkBtn.classList.remove('done');
+    return;
+  }
+
   entry.done = true;
   trainingPersistSessionEntries();
-  document.getElementById('trainingExCheckBtn').classList.add('done');
+  if (checkBtn) checkBtn.classList.add('done');
   trainingSpawnConfetti();
-  setTimeout(() => {
-    if (trainingSessionExIndex < TRAINING_EX_COUNT - 1) trainingGoToExercise(1);
-  }, 850);
+
+  const allDone = trainingSessionEntries.every((e) => e && e.done);
+  if (allDone) {
+    setTimeout(trainingShowCompletionPopup, 700);
+  } else {
+    setTimeout(() => {
+      if (trainingSessionExIndex < TRAINING_EX_COUNT - 1) trainingGoToExercise(1);
+    }, 850);
+  }
+}
+
+// Bouwt een positieve voortgangsboodschap: vergelijkt de kg's van deze sessie met de beste kg
+// van vóór deze sessie (trainingSessionBaselinePR) per oefening, en benoemt groei, gelijkblijven
+// én teruggang — altijd in een positieve/motiverende toon.
+function trainingBuildProgressMessage() {
+  const grew = [];
+  const same = [];
+  const dropped = [];
+  let firstTime = 0;
+
+  for (let i = 0; i < TRAINING_EX_COUNT; i++) {
+    const name = (trainingSessionNames[i] || '').trim() || ('Oefening ' + (i + 1));
+    const entry = trainingSessionEntries[i];
+    const filled = entry ? (entry.kgs || []).filter((n) => typeof n === 'number' && !isNaN(n) && n > 0) : [];
+    if (!filled.length) continue;
+    const finalKg = Math.max(...filled);
+    const baseline = trainingSessionBaselinePR[i];
+    if (baseline == null) {
+      firstTime++;
+    } else if (finalKg > baseline) {
+      grew.push({ name, from: baseline, to: finalKg });
+    } else if (finalKg === baseline) {
+      same.push(name);
+    } else {
+      dropped.push({ name, from: baseline, to: finalKg });
+    }
+  }
+
+  const parts = [];
+  if (grew.length) {
+    const top = grew.slice().sort((a, b) => (b.to - b.from) - (a.to - a.from))[0];
+    parts.push(
+      grew.length === 1
+        ? `Mooie vooruitgang bij ${top.name}: van ${trainingFmtKg(top.from)} naar ${trainingFmtKg(top.to)} kg! 💪`
+        : `Sterk werk — bij ${grew.length} oefeningen ging het gewicht omhoog, met ${top.name} als uitschieter (${trainingFmtKg(top.from)} → ${trainingFmtKg(top.to)} kg).`
+    );
+  }
+  if (same.length) {
+    parts.push(`Bij ${same.length === 1 ? same[0] : same.length + ' oefeningen'} hield je hetzelfde gewicht aan — mooi consistent.`);
+  }
+  if (dropped.length) {
+    parts.push(
+      dropped.length === 1
+        ? `Bij ${dropped[0].name} ging het net iets terug (${trainingFmtKg(dropped[0].from)} → ${trainingFmtKg(dropped[0].to)} kg) — dat hoort erbij, volgende keer weer omhoog.`
+        : `Bij ${dropped.length} oefeningen was het gewicht iets lager dan de vorige keer — geen probleem, herstel hoort bij het proces.`
+    );
+  }
+  if (!parts.length && firstTime) {
+    parts.push('Dit is de eerste keer dat we deze oefeningen bijhouden — vanaf nu volgen we mooi je progressie!');
+  }
+  if (!parts.length) {
+    parts.push('Goed gedaan, sessie afgerond!');
+  }
+  return parts.join(' ');
+}
+
+function trainingShowCompletionPopup() {
+  alert('Lekker bezig! 🎉\n\n' + trainingBuildProgressMessage());
 }
 
 function trainingSpawnConfetti() {
