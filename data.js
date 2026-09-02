@@ -1229,12 +1229,21 @@ function trainingSaveCurrentSetInputs() {
   entry.kgs = kgs;
 }
 
+const TRAINING_SET_ROMANS = ['i', 'ii', 'iii', 'iv', 'v'];
+
 function renderTrainingSessionExercise() {
   const name = (trainingSessionNames[trainingSessionExIndex] || '').trim();
   document.getElementById('trainingExTitle').textContent = name || ('Oefening ' + (trainingSessionExIndex + 1));
 
   const illustrationEl = document.getElementById('trainingExIllustrationBody');
   if (illustrationEl) illustrationEl.innerHTML = trainingExerciseIllustration(name);
+
+  const lastKg = trainingSessionBaselinePR[trainingSessionExIndex];
+  const subtitleEl = document.getElementById('trainingExSubtitle');
+  if (subtitleEl) {
+    subtitleEl.innerHTML = TRAINING_SET_COUNT + ' sets' +
+      (lastKg != null ? ' · laatst <strong>' + trainingFmtKg(lastKg) + ' kg</strong>' : ' · nog geen historie');
+  }
 
   const prevBtn = document.getElementById('trainingExPrevBtn');
   const nextBtn = document.getElementById('trainingExNextBtn');
@@ -1243,15 +1252,52 @@ function renderTrainingSessionExercise() {
 
   const entry = trainingSessionEntries[trainingSessionExIndex] || { kgs: [], done: false };
   const setsEl = document.getElementById('trainingExSets');
-  setsEl.innerHTML = Array.from({ length: TRAINING_SET_COUNT }, (_, s) => `
-    <div class="training-set-col">
-      <span class="training-set-label">Set ${s + 1}</span>
-      <input type="number" inputmode="decimal" step="0.5" class="training-set-input" id="trainingSetInput${s}"
-        value="${entry.kgs[s] != null ? entry.kgs[s] : ''}" placeholder="kg">
-    </div>`).join('');
+  setsEl.innerHTML = Array.from({ length: TRAINING_SET_COUNT }, (_, s) => {
+    const filled = entry.kgs[s] != null;
+    return `<div class="training-set-row">
+      <span class="training-set-roman">${TRAINING_SET_ROMANS[s] || (s + 1)}</span>
+      <div class="training-set-field">
+        <input type="number" inputmode="decimal" step="0.5" class="training-set-input" id="trainingSetInput${s}"
+          value="${filled ? entry.kgs[s] : ''}" placeholder="—">
+        <span class="training-set-unit">kg</span>
+      </div>
+      <span class="training-set-state" data-state="${filled ? 'filled' : 'empty'}">${filled ? 'ingevuld' : 'set ' + (s + 1)}</span>
+    </div>`;
+  }).join('');
 
   const checkBtn = document.getElementById('trainingExCheckBtn');
   if (checkBtn) checkBtn.classList.toggle('done', !!entry.done);
+
+  renderTrainingSessionProgress();
+}
+
+// Voortgangsbalk + label ("X / 8 oefeningen") + klikbare stipjes bovenaan de sessie — stipjes
+// tonen welke oefeningen al zijn afgevinkt en welke actief is, en springen bij een klik direct
+// naar die oefening (zodat de hele sessie interactief/navigeerbaar aanvoelt, niet alleen lineair).
+function renderTrainingSessionProgress() {
+  const doneCount = trainingSessionEntries.filter((e) => e && e.done).length;
+
+  const labelEl = document.getElementById('trainingSessionProgressLabel');
+  if (labelEl) labelEl.textContent = doneCount + ' / ' + TRAINING_EX_COUNT + ' oefeningen';
+
+  const fillEl = document.getElementById('trainingSessionProgressFill');
+  if (fillEl) fillEl.style.width = (doneCount / TRAINING_EX_COUNT * 100) + '%';
+
+  const dotsEl = document.getElementById('trainingSessionDots');
+  if (dotsEl) {
+    dotsEl.innerHTML = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => {
+      const cls = ['training-session-dot'];
+      if (trainingSessionEntries[i] && trainingSessionEntries[i].done) cls.push('done');
+      if (i === trainingSessionExIndex) cls.push('current');
+      return `<button type="button" class="${cls.join(' ')}" data-idx="${i}" title="Oefening ${i + 1}"></button>`;
+    }).join('');
+    dotsEl.querySelectorAll('.training-session-dot').forEach((btn) => {
+      btn.addEventListener('click', () => trainingJumpToExercise(parseInt(btn.getAttribute('data-idx'), 10)));
+    });
+  }
+
+  const dayChip = document.getElementById('trainingSessionDayChip');
+  if (dayChip) dayChip.textContent = TRAINING_DAY_LABELS[trainingSessionDay] || '';
 }
 
 function trainingGoToExercise(delta) {
@@ -1260,6 +1306,15 @@ function trainingGoToExercise(delta) {
   const next = trainingSessionExIndex + delta;
   if (next < 0 || next >= TRAINING_EX_COUNT) return;
   trainingSessionExIndex = next;
+  renderTrainingSessionExercise();
+}
+
+// Direct naar een specifieke oefening springen via een klik op een stipje.
+function trainingJumpToExercise(idx) {
+  if (idx === trainingSessionExIndex || idx < 0 || idx >= TRAINING_EX_COUNT) return;
+  trainingSaveCurrentSetInputs();
+  trainingPersistSessionEntries();
+  trainingSessionExIndex = idx;
   renderTrainingSessionExercise();
 }
 
@@ -1275,12 +1330,14 @@ function trainingMarkExerciseDone() {
     entry.done = false;
     trainingPersistSessionEntries();
     if (checkBtn) checkBtn.classList.remove('done');
+    renderTrainingSessionProgress();
     return;
   }
 
   entry.done = true;
   trainingPersistSessionEntries();
   if (checkBtn) checkBtn.classList.add('done');
+  renderTrainingSessionProgress();
   trainingSpawnConfetti();
 
   const allDone = trainingSessionEntries.every((e) => e && e.done);

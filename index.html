@@ -313,14 +313,26 @@
     <div class="training-session-box" id="trainingSessionBox">
       <div class="training-session-topbar">
         <button type="button" class="training-session-close-btn" id="trainingSessionCloseBtn" title="Sessie beëindigen">✕</button>
+        <span class="training-session-day-chip" id="trainingSessionDayChip">Dag 1</span>
         <div class="training-session-timer" id="trainingSessionTimer">00:00</div>
-        <span class="training-session-topbar-spacer"></span>
       </div>
+
+      <div class="training-session-progress">
+        <div class="training-session-progress-top">
+          <span class="training-session-progress-label" id="trainingSessionProgressLabel">0 / 8 oefeningen</span>
+        </div>
+        <div class="training-session-progress-track">
+          <div class="training-session-progress-fill" id="trainingSessionProgressFill"></div>
+        </div>
+        <div class="training-session-dots" id="trainingSessionDots"></div>
+      </div>
+
       <div class="training-session-nav">
         <button type="button" class="training-session-arrow" id="trainingExPrevBtn">‹</button>
         <button type="button" class="training-session-arrow" id="trainingExNextBtn">›</button>
       </div>
       <div class="training-session-title" id="trainingExTitle">Oefening</div>
+      <div class="training-session-subtitle" id="trainingExSubtitle"></div>
       <div class="training-session-illustration">
         <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="60" cy="60" r="58" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.14)"/>
