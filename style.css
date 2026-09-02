@@ -297,7 +297,7 @@ main {
 .budget-nav-arrow {
   border: none; background: rgba(242,144,61,0.16); color: var(--orange-dark);
   width: 32px; height: 32px; border-radius: 10px; font-size: 17px; font-weight: 800; cursor: pointer;
-  line-height: 1;
+  line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0;
 }
 .budget-income-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -542,7 +542,10 @@ main {
 }
 
 /* ---------- Trainingsschema ---------- */
-.training-header-actions { float: right; display: flex; align-items: center; gap: 8px; }
+/* Kaart-titel als flex-rij i.p.v. float — een float met de (nu grotere) play-knop kon de
+   volgende regels laten "meeschuiven" en de nav-rijen daaronder scheef laten ogen. */
+.card-training h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.training-header-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .training-icon-btn {
   width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer;
   background: rgba(242,144,61,0.16); color: var(--orange-dark); font-size: 13px;
@@ -553,11 +556,16 @@ main {
   font-size: 17px; padding-left: 2px; box-shadow: 0 6px 16px rgba(200,90,29,0.4);
 }
 
+/* Grid i.p.v. flex+justify-center: de twee buitenste kolommen zijn altijd even breed, dus het
+   label staat gegarandeerd precies in het midden van de kaart — ongeacht labelbreedte. */
 .training-week-nav, .training-day-nav {
-  display: flex; align-items: center; justify-content: center; gap: 12px; margin: 2px 0 10px;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin: 2px 0 10px;
 }
-.training-week-label { font-size: 12.5px; font-weight: 700; color: var(--muted); min-width: 130px; text-align: center; }
-.training-day-label { font-size: 16px; font-weight: 800; color: var(--orange-dark); min-width: 70px; text-align: center; }
+.training-week-nav .budget-nav-arrow, .training-day-nav .budget-nav-arrow { flex: none; }
+.training-week-nav .budget-nav-arrow:first-child, .training-day-nav .budget-nav-arrow:first-child { justify-self: end; margin-right: 12px; }
+.training-week-nav .budget-nav-arrow:last-child, .training-day-nav .budget-nav-arrow:last-child { justify-self: start; margin-left: 12px; }
+.training-week-label { font-size: 12.5px; font-weight: 700; color: var(--muted); text-align: center; justify-self: center; }
+.training-day-label { font-size: 16px; font-weight: 800; color: var(--orange-dark); text-align: center; justify-self: center; min-width: 60px; }
 
 .training-ex-row {
   display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--border-soft);
@@ -590,8 +598,19 @@ main {
   border-radius: 999px; padding: 7px 16px; white-space: nowrap;
 }
 .training-session-timer {
-  font-size: 15.5px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums;
-  background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); border-radius: 999px; padding: 7px 14px; flex: none;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 23px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  background: linear-gradient(135deg, rgba(242,144,61,0.24), rgba(242,144,61,0.07));
+  border: 1px solid rgba(242,144,61,0.38); border-radius: 999px; padding: 8px 18px 8px 15px; flex: none;
+  box-shadow: 0 4px 16px rgba(242,144,61,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.training-session-timer::before {
+  content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--orange); flex: none;
+  animation: trainingTimerPulse 1.6s ease-in-out infinite;
+}
+@keyframes trainingTimerPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(242,144,61,0.55); transform: scale(1); }
+  50% { opacity: 0.5; box-shadow: 0 0 0 6px rgba(242,144,61,0); transform: scale(0.82); }
 }
 
 /* Voortgang: balk + label bovenaan ("X / 8 oefeningen") en klikbare stipjes per oefening
