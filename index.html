@@ -335,6 +335,21 @@
       <div class="training-session-subtitle" id="trainingExSubtitle"></div>
       <div class="training-session-illustration">
         <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- Zachte gloed achter de gemarkeerde spiergroep, zodat die er "highlighted" uitziet
+                 zoals in een anatomie-illustratie i.p.v. gewoon een platte kleur. -->
+            <filter id="muscleGlow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="2.4" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+            <linearGradient id="muscleHL" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#FFB25C"/>
+              <stop offset="100%" stop-color="#FF7A3D"/>
+            </linearGradient>
+          </defs>
           <circle cx="60" cy="60" r="58" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.14)"/>
           <g id="trainingExIllustrationBody" stroke-linecap="round" stroke-linejoin="round" fill="none"></g>
         </svg>

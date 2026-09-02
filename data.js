@@ -855,139 +855,169 @@ const TRAINING_DAY_LABELS = { dag1: 'Dag 1', dag2: 'Dag 2' };
 // de oude vaste "dumbbell"-illustratie: #FFC98A voor gewrichten/gewichten, #F2903D voor
 // ledematen/stang). trainingExerciseIllustration(name) matcht op Nederlandse/Engelse
 // trefwoorden in de oefeningnaam en valt terug op de generieke dumbbell als niks matcht.
+// Kleuren: BODY = neutraal lichaamssilhouet, EQUIP = toestel/gewicht (koel grijs), en de
+// gemarkeerde spiergroep gebruikt de gedeelde highlight-gradient (#muscleHL, in index.html) met
+// zachte gloed (#muscleGlow) — zodat precies díe spier opvalt, net als in een anatomie-plaat.
+const TB = '#CBB79E';   // lichaam (romp/armen/benen)
+const TBH = '#E2D0B4';  // hoofd (iets lichter)
+const TEQ = '#9A97A6';  // toestel/stang (koel grijs)
+const TEQL = '#C4C2CF'; // handvat/gewicht (lichter grijs)
+const HL = 'url(#muscleHL)';
+const HLF = 'filter="url(#muscleGlow)" opacity="0.92"';
+
 const TRAINING_ILLUSTRATIONS = {
   generic: `
-    <rect x="14" y="48" width="14" height="24" rx="4" fill="#FFC98A"/>
-    <rect x="92" y="48" width="14" height="24" rx="4" fill="#FFC98A"/>
-    <rect x="24" y="40" width="8" height="40" rx="3" fill="#F2903D"/>
-    <rect x="88" y="40" width="8" height="40" rx="3" fill="#F2903D"/>
-    <line x1="32" y1="60" x2="88" y2="60" stroke="#F2903D" stroke-width="7"/>`,
+    <rect x="14" y="48" width="14" height="24" rx="4" fill="${TEQL}"/>
+    <rect x="92" y="48" width="14" height="24" rx="4" fill="${TEQL}"/>
+    <rect x="24" y="40" width="8" height="40" rx="3" fill="${TEQ}"/>
+    <rect x="88" y="40" width="8" height="40" rx="3" fill="${TEQ}"/>
+    <line x1="32" y1="60" x2="88" y2="60" stroke="${TEQ}" stroke-width="7"/>`,
   bicepCurl: `
-    <circle cx="60" cy="26" r="9" fill="#FFC98A"/>
-    <line x1="60" y1="35" x2="60" y2="76" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="76" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="76" x2="74" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="42" x2="40" y2="56" stroke="#F2903D" stroke-width="6"/>
-    <line x1="40" y1="56" x2="48" y2="36" stroke="#F2903D" stroke-width="6"/>
-    <circle cx="48" cy="36" r="7" fill="#FFC98A"/>
-    <line x1="60" y1="42" x2="80" y2="56" stroke="#F2903D" stroke-width="6"/>
-    <line x1="80" y1="56" x2="72" y2="36" stroke="#F2903D" stroke-width="6"/>
-    <circle cx="72" cy="36" r="7" fill="#FFC98A"/>`,
+    <circle cx="60" cy="26" r="9" fill="${TBH}"/>
+    <line x1="60" y1="35" x2="60" y2="76" stroke="${TB}" stroke-width="16"/>
+    <line x1="60" y1="76" x2="46" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="60" y1="76" x2="74" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="60" y1="42" x2="40" y2="56" stroke="${TB}" stroke-width="9"/>
+    <line x1="40" y1="56" x2="48" y2="36" stroke="${TB}" stroke-width="8"/>
+    <circle cx="48" cy="36" r="7" fill="${TEQL}"/>
+    <line x1="60" y1="42" x2="80" y2="56" stroke="${TB}" stroke-width="9"/>
+    <line x1="80" y1="56" x2="72" y2="36" stroke="${TB}" stroke-width="8"/>
+    <circle cx="72" cy="36" r="7" fill="${TEQL}"/>
+    <ellipse cx="47" cy="50" rx="7" ry="10" fill="${HL}" ${HLF} transform="rotate(-38 47 50)"/>
+    <ellipse cx="73" cy="50" rx="7" ry="10" fill="${HL}" ${HLF} transform="rotate(38 73 50)"/>`,
   triceps: `
-    <circle cx="60" cy="26" r="9" fill="#FFC98A"/>
-    <line x1="60" y1="35" x2="60" y2="76" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="76" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="76" x2="74" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="52" y1="40" x2="46" y2="20" stroke="#F2903D" stroke-width="6"/>
-    <line x1="46" y1="20" x2="60" y2="34" stroke="#F2903D" stroke-width="6"/>
-    <line x1="68" y1="40" x2="74" y2="20" stroke="#F2903D" stroke-width="6"/>
-    <line x1="74" y1="20" x2="60" y2="34" stroke="#F2903D" stroke-width="6"/>
-    <rect x="50" y="26" width="20" height="10" rx="4" fill="#FFC98A"/>`,
+    <circle cx="60" cy="26" r="9" fill="${TBH}"/>
+    <line x1="60" y1="35" x2="60" y2="76" stroke="${TB}" stroke-width="16"/>
+    <line x1="60" y1="76" x2="46" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="60" y1="76" x2="74" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="52" y1="40" x2="46" y2="20" stroke="${TB}" stroke-width="8"/>
+    <line x1="46" y1="20" x2="60" y2="34" stroke="${TB}" stroke-width="7"/>
+    <line x1="68" y1="40" x2="74" y2="20" stroke="${TB}" stroke-width="8"/>
+    <line x1="74" y1="20" x2="60" y2="34" stroke="${TB}" stroke-width="7"/>
+    <rect x="50" y="26" width="20" height="10" rx="4" fill="${TEQL}"/>
+    <ellipse cx="49" cy="30" rx="6" ry="9" fill="${HL}" ${HLF} transform="rotate(-20 49 30)"/>
+    <ellipse cx="71" cy="30" rx="6" ry="9" fill="${HL}" ${HLF} transform="rotate(20 71 30)"/>`,
   squat: `
-    <circle cx="60" cy="24" r="9" fill="#FFC98A"/>
-    <line x1="60" y1="33" x2="60" y2="64" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="64" x2="42" y2="80" stroke="#F2903D" stroke-width="7"/>
-    <line x1="42" y1="80" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="64" x2="78" y2="80" stroke="#F2903D" stroke-width="7"/>
-    <line x1="78" y1="80" x2="74" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="34" y1="34" x2="86" y2="34" stroke="#F2903D" stroke-width="7"/>
-    <circle cx="34" cy="34" r="8" fill="#FFC98A"/>
-    <circle cx="86" cy="34" r="8" fill="#FFC98A"/>
-    <line x1="60" y1="33" x2="40" y2="46" stroke="#F2903D" stroke-width="6"/>
-    <line x1="60" y1="33" x2="80" y2="46" stroke="#F2903D" stroke-width="6"/>`,
+    <circle cx="60" cy="24" r="9" fill="${TBH}"/>
+    <line x1="60" y1="33" x2="60" y2="64" stroke="${TB}" stroke-width="16"/>
+    <line x1="60" y1="64" x2="42" y2="80" stroke="${TB}" stroke-width="10"/>
+    <line x1="42" y1="80" x2="46" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="60" y1="64" x2="78" y2="80" stroke="${TB}" stroke-width="10"/>
+    <line x1="78" y1="80" x2="74" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="34" y1="34" x2="86" y2="34" stroke="${TEQ}" stroke-width="7"/>
+    <circle cx="34" cy="34" r="8" fill="${TEQL}"/>
+    <circle cx="86" cy="34" r="8" fill="${TEQL}"/>
+    <line x1="60" y1="33" x2="40" y2="46" stroke="${TB}" stroke-width="8"/>
+    <line x1="60" y1="33" x2="80" y2="46" stroke="${TB}" stroke-width="8"/>
+    <ellipse cx="49" cy="73" rx="8" ry="11" fill="${HL}" ${HLF} transform="rotate(-30 49 73)"/>
+    <ellipse cx="71" cy="73" rx="8" ry="11" fill="${HL}" ${HLF} transform="rotate(30 71 73)"/>`,
   deadlift: `
-    <circle cx="46" cy="30" r="9" fill="#FFC98A"/>
-    <line x1="46" y1="39" x2="66" y2="70" stroke="#F2903D" stroke-width="7"/>
-    <line x1="66" y1="70" x2="60" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="66" y1="70" x2="80" y2="106" stroke="#F2903D" stroke-width="7"/>
-    <line x1="46" y1="46" x2="40" y2="90" stroke="#F2903D" stroke-width="6"/>
-    <line x1="52" y1="50" x2="46" y2="90" stroke="#F2903D" stroke-width="6"/>
-    <line x1="30" y1="92" x2="56" y2="92" stroke="#F2903D" stroke-width="7"/>
-    <circle cx="30" cy="92" r="8" fill="#FFC98A"/>
-    <circle cx="56" cy="92" r="8" fill="#FFC98A"/>`,
+    <circle cx="46" cy="30" r="9" fill="${TBH}"/>
+    <line x1="46" y1="39" x2="66" y2="70" stroke="${TB}" stroke-width="15"/>
+    <line x1="66" y1="70" x2="60" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="66" y1="70" x2="80" y2="106" stroke="${TB}" stroke-width="9"/>
+    <line x1="46" y1="46" x2="40" y2="90" stroke="${TB}" stroke-width="7"/>
+    <line x1="52" y1="50" x2="46" y2="90" stroke="${TB}" stroke-width="7"/>
+    <line x1="30" y1="92" x2="56" y2="92" stroke="${TEQ}" stroke-width="7"/>
+    <circle cx="30" cy="92" r="8" fill="${TEQL}"/>
+    <circle cx="56" cy="92" r="8" fill="${TEQL}"/>
+    <ellipse cx="63" cy="80" rx="13" ry="13" fill="${HL}" ${HLF}/>`,
   benchPress: `
-    <circle cx="18" cy="70" r="9" fill="#FFC98A"/>
-    <line x1="27" y1="70" x2="90" y2="70" stroke="#F2903D" stroke-width="7"/>
-    <line x1="50" y1="70" x2="50" y2="38" stroke="#F2903D" stroke-width="6"/>
-    <line x1="70" y1="70" x2="70" y2="38" stroke="#F2903D" stroke-width="6"/>
-    <line x1="30" y1="38" x2="90" y2="38" stroke="#F2903D" stroke-width="7"/>
-    <circle cx="30" cy="38" r="8" fill="#FFC98A"/>
-    <circle cx="90" cy="38" r="8" fill="#FFC98A"/>`,
+    <circle cx="18" cy="70" r="9" fill="${TBH}"/>
+    <line x1="27" y1="70" x2="90" y2="70" stroke="${TB}" stroke-width="15"/>
+    <line x1="50" y1="70" x2="50" y2="38" stroke="${TB}" stroke-width="8"/>
+    <line x1="70" y1="70" x2="70" y2="38" stroke="${TB}" stroke-width="8"/>
+    <line x1="30" y1="38" x2="90" y2="38" stroke="${TEQ}" stroke-width="7"/>
+    <circle cx="30" cy="38" r="8" fill="${TEQL}"/>
+    <circle cx="90" cy="38" r="8" fill="${TEQL}"/>
+    <ellipse cx="46" cy="70" rx="14" ry="9" fill="${HL}" ${HLF}/>`,
   shoulderPress: `
-    <circle cx="60" cy="30" r="9" fill="#FFC98A"/>
-    <line x1="60" y1="39" x2="60" y2="80" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="80" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="80" x2="74" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="44" x2="40" y2="20" stroke="#F2903D" stroke-width="6"/>
-    <line x1="60" y1="44" x2="80" y2="20" stroke="#F2903D" stroke-width="6"/>
-    <circle cx="40" cy="20" r="7" fill="#FFC98A"/>
-    <circle cx="80" cy="20" r="7" fill="#FFC98A"/>`,
+    <circle cx="60" cy="30" r="9" fill="${TBH}"/>
+    <line x1="60" y1="39" x2="60" y2="80" stroke="${TB}" stroke-width="16"/>
+    <line x1="60" y1="80" x2="46" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="60" y1="80" x2="74" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="60" y1="44" x2="40" y2="20" stroke="${TB}" stroke-width="8"/>
+    <line x1="60" y1="44" x2="80" y2="20" stroke="${TB}" stroke-width="8"/>
+    <circle cx="40" cy="20" r="7" fill="${TEQL}"/>
+    <circle cx="80" cy="20" r="7" fill="${TEQL}"/>
+    <ellipse cx="46" cy="41" rx="8" ry="8" fill="${HL}" ${HLF}/>
+    <ellipse cx="74" cy="41" rx="8" ry="8" fill="${HL}" ${HLF}/>`,
   pulldown: `
-    <line x1="24" y1="24" x2="96" y2="24" stroke="#F2903D" stroke-width="7"/>
-    <circle cx="60" cy="46" r="9" fill="#FFC98A"/>
-    <line x1="60" y1="55" x2="60" y2="88" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="88" x2="48" y2="110" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="88" x2="72" y2="110" stroke="#F2903D" stroke-width="7"/>
-    <line x1="58" y1="50" x2="30" y2="26" stroke="#F2903D" stroke-width="6"/>
-    <line x1="62" y1="50" x2="90" y2="26" stroke="#F2903D" stroke-width="6"/>
-    <circle cx="30" cy="26" r="6" fill="#FFC98A"/>
-    <circle cx="90" cy="26" r="6" fill="#FFC98A"/>`,
+    <line x1="24" y1="24" x2="96" y2="24" stroke="${TEQ}" stroke-width="7"/>
+    <circle cx="60" cy="46" r="9" fill="${TBH}"/>
+    <line x1="60" y1="55" x2="60" y2="88" stroke="${TB}" stroke-width="16"/>
+    <line x1="60" y1="88" x2="48" y2="110" stroke="${TB}" stroke-width="9"/>
+    <line x1="60" y1="88" x2="72" y2="110" stroke="${TB}" stroke-width="9"/>
+    <line x1="58" y1="50" x2="30" y2="26" stroke="${TB}" stroke-width="8"/>
+    <line x1="62" y1="50" x2="90" y2="26" stroke="${TB}" stroke-width="8"/>
+    <circle cx="30" cy="26" r="6" fill="${TEQL}"/>
+    <circle cx="90" cy="26" r="6" fill="${TEQL}"/>
+    <ellipse cx="60" cy="66" rx="13" ry="12" fill="${HL}" ${HLF}/>`,
   row: `
-    <circle cx="42" cy="30" r="9" fill="#FFC98A"/>
-    <line x1="42" y1="39" x2="66" y2="66" stroke="#F2903D" stroke-width="7"/>
-    <line x1="66" y1="66" x2="58" y2="106" stroke="#F2903D" stroke-width="7"/>
-    <line x1="66" y1="66" x2="80" y2="104" stroke="#F2903D" stroke-width="7"/>
-    <line x1="50" y1="48" x2="80" y2="54" stroke="#F2903D" stroke-width="6"/>
-    <circle cx="80" cy="54" r="7" fill="#FFC98A"/>
-    <line x1="54" y1="56" x2="86" y2="66" stroke="#F2903D" stroke-width="6"/>
-    <circle cx="86" cy="66" r="7" fill="#FFC98A"/>`,
+    <circle cx="42" cy="30" r="9" fill="${TBH}"/>
+    <line x1="42" y1="39" x2="66" y2="66" stroke="${TB}" stroke-width="15"/>
+    <line x1="66" y1="66" x2="58" y2="106" stroke="${TB}" stroke-width="9"/>
+    <line x1="66" y1="66" x2="80" y2="104" stroke="${TB}" stroke-width="9"/>
+    <line x1="50" y1="48" x2="80" y2="54" stroke="${TB}" stroke-width="8"/>
+    <circle cx="80" cy="54" r="7" fill="${TEQL}"/>
+    <line x1="54" y1="56" x2="86" y2="66" stroke="${TB}" stroke-width="8"/>
+    <circle cx="86" cy="66" r="7" fill="${TEQL}"/>
+    <ellipse cx="60" cy="60" rx="12" ry="11" fill="${HL}" ${HLF}/>`,
   plank: `
-    <line x1="18" y1="70" x2="98" y2="60" stroke="#F2903D" stroke-width="7"/>
-    <circle cx="14" cy="72" r="9" fill="#FFC98A"/>
-    <line x1="30" y1="68" x2="30" y2="94" stroke="#F2903D" stroke-width="6"/>
-    <line x1="94" y1="60" x2="98" y2="94" stroke="#F2903D" stroke-width="6"/>`,
+    <line x1="18" y1="70" x2="98" y2="60" stroke="${TB}" stroke-width="14"/>
+    <circle cx="14" cy="72" r="9" fill="${TBH}"/>
+    <line x1="30" y1="68" x2="30" y2="94" stroke="${TB}" stroke-width="7"/>
+    <line x1="94" y1="60" x2="98" y2="94" stroke="${TB}" stroke-width="7"/>
+    <ellipse cx="55" cy="65" rx="17" ry="7" fill="${HL}" ${HLF} transform="rotate(-6 55 65)"/>`,
   lunge: `
-    <circle cx="52" cy="26" r="9" fill="#FFC98A"/>
-    <line x1="52" y1="35" x2="58" y2="66" stroke="#F2903D" stroke-width="7"/>
-    <line x1="58" y1="66" x2="42" y2="82" stroke="#F2903D" stroke-width="7"/>
-    <line x1="42" y1="82" x2="46" y2="108" stroke="#F2903D" stroke-width="7"/>
-    <line x1="58" y1="66" x2="80" y2="76" stroke="#F2903D" stroke-width="7"/>
-    <line x1="80" y1="76" x2="94" y2="102" stroke="#F2903D" stroke-width="7"/>
-    <line x1="52" y1="42" x2="34" y2="56" stroke="#F2903D" stroke-width="6"/>
-    <line x1="52" y1="42" x2="70" y2="56" stroke="#F2903D" stroke-width="6"/>`,
+    <circle cx="52" cy="26" r="9" fill="${TBH}"/>
+    <line x1="52" y1="35" x2="58" y2="66" stroke="${TB}" stroke-width="15"/>
+    <line x1="58" y1="66" x2="42" y2="82" stroke="${TB}" stroke-width="10"/>
+    <line x1="42" y1="82" x2="46" y2="108" stroke="${TB}" stroke-width="9"/>
+    <line x1="58" y1="66" x2="80" y2="76" stroke="${TB}" stroke-width="9"/>
+    <line x1="80" y1="76" x2="94" y2="102" stroke="${TB}" stroke-width="8"/>
+    <line x1="52" y1="42" x2="34" y2="56" stroke="${TB}" stroke-width="7"/>
+    <line x1="52" y1="42" x2="70" y2="56" stroke="${TB}" stroke-width="7"/>
+    <ellipse cx="49" cy="75" rx="9" ry="11" fill="${HL}" ${HLF} transform="rotate(-35 49 75)"/>`,
   legPress: `
-    <circle cx="26" cy="40" r="9" fill="#FFC98A"/>
-    <line x1="26" y1="49" x2="46" y2="70" stroke="#F2903D" stroke-width="7"/>
-    <line x1="46" y1="70" x2="46" y2="96" stroke="#F2903D" stroke-width="7"/>
-    <line x1="46" y1="70" x2="80" y2="66" stroke="#F2903D" stroke-width="7"/>
-    <line x1="80" y1="66" x2="100" y2="52" stroke="#F2903D" stroke-width="7"/>
-    <line x1="100" y1="30" x2="100" y2="74" stroke="#F2903D" stroke-width="7"/>`,
+    <circle cx="26" cy="40" r="9" fill="${TBH}"/>
+    <line x1="26" y1="49" x2="46" y2="70" stroke="${TB}" stroke-width="14"/>
+    <line x1="46" y1="70" x2="46" y2="96" stroke="${TB}" stroke-width="9"/>
+    <line x1="46" y1="70" x2="80" y2="66" stroke="${TB}" stroke-width="9"/>
+    <line x1="80" y1="66" x2="100" y2="52" stroke="${TEQ}" stroke-width="7"/>
+    <line x1="100" y1="30" x2="100" y2="74" stroke="${TEQ}" stroke-width="7"/>
+    <ellipse cx="63" cy="68" rx="10" ry="8" fill="${HL}" ${HLF} transform="rotate(-8 63 68)"/>`,
   chestFly: `
-    <circle cx="18" cy="66" r="9" fill="#FFC98A"/>
-    <line x1="27" y1="66" x2="90" y2="66" stroke="#F2903D" stroke-width="7"/>
-    <line x1="50" y1="66" x2="30" y2="42" stroke="#F2903D" stroke-width="6"/>
-    <line x1="70" y1="66" x2="90" y2="42" stroke="#F2903D" stroke-width="6"/>
-    <circle cx="30" cy="42" r="7" fill="#FFC98A"/>
-    <circle cx="90" cy="42" r="7" fill="#FFC98A"/>`,
+    <circle cx="18" cy="66" r="9" fill="${TBH}"/>
+    <line x1="27" y1="66" x2="90" y2="66" stroke="${TB}" stroke-width="15"/>
+    <line x1="50" y1="66" x2="30" y2="42" stroke="${TB}" stroke-width="8"/>
+    <line x1="70" y1="66" x2="90" y2="42" stroke="${TB}" stroke-width="8"/>
+    <circle cx="30" cy="42" r="7" fill="${TEQL}"/>
+    <circle cx="90" cy="42" r="7" fill="${TEQL}"/>
+    <ellipse cx="58" cy="62" rx="16" ry="9" fill="${HL}" ${HLF}/>`,
   calfRaise: `
-    <circle cx="60" cy="24" r="9" fill="#FFC98A"/>
-    <line x1="60" y1="33" x2="60" y2="72" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="72" x2="50" y2="100" stroke="#F2903D" stroke-width="7"/>
-    <line x1="60" y1="72" x2="70" y2="100" stroke="#F2903D" stroke-width="7"/>
-    <line x1="46" y1="106" x2="54" y2="106" stroke="#F2903D" stroke-width="5"/>
-    <line x1="66" y1="106" x2="74" y2="106" stroke="#F2903D" stroke-width="5"/>`,
+    <circle cx="60" cy="24" r="9" fill="${TBH}"/>
+    <line x1="60" y1="33" x2="60" y2="72" stroke="${TB}" stroke-width="15"/>
+    <line x1="60" y1="72" x2="50" y2="100" stroke="${TB}" stroke-width="9"/>
+    <line x1="60" y1="72" x2="70" y2="100" stroke="${TB}" stroke-width="9"/>
+    <line x1="46" y1="106" x2="54" y2="106" stroke="${TB}" stroke-width="5"/>
+    <line x1="66" y1="106" x2="74" y2="106" stroke="${TB}" stroke-width="5"/>
+    <ellipse cx="51" cy="90" rx="6" ry="10" fill="${HL}" ${HLF}/>
+    <ellipse cx="69" cy="90" rx="6" ry="10" fill="${HL}" ${HLF}/>`,
   legExtension: `
-    <circle cx="30" cy="30" r="9" fill="#FFC98A"/>
-    <line x1="30" y1="39" x2="46" y2="66" stroke="#F2903D" stroke-width="7"/>
-    <line x1="46" y1="66" x2="46" y2="92" stroke="#F2903D" stroke-width="7"/>
-    <line x1="46" y1="66" x2="86" y2="60" stroke="#F2903D" stroke-width="7"/>
-    <circle cx="90" cy="60" r="6" fill="#FFC98A"/>`,
+    <circle cx="30" cy="30" r="9" fill="${TBH}"/>
+    <line x1="30" y1="39" x2="46" y2="66" stroke="${TB}" stroke-width="14"/>
+    <line x1="46" y1="66" x2="46" y2="92" stroke="${TB}" stroke-width="9"/>
+    <line x1="46" y1="66" x2="86" y2="60" stroke="${TEQ}" stroke-width="7"/>
+    <circle cx="90" cy="60" r="6" fill="${TEQL}"/>
+    <ellipse cx="47" cy="80" rx="7" ry="13" fill="${HL}" ${HLF} transform="rotate(-6 47 80)"/>`,
   situp: `
-    <line x1="20" y1="86" x2="80" y2="86" stroke="#F2903D" stroke-width="6"/>
-    <circle cx="46" cy="56" r="9" fill="#FFC98A"/>
-    <line x1="46" y1="65" x2="50" y2="86" stroke="#F2903D" stroke-width="7"/>
-    <line x1="50" y1="86" x2="40" y2="104" stroke="#F2903D" stroke-width="7"/>
-    <line x1="50" y1="86" x2="70" y2="98" stroke="#F2903D" stroke-width="7"/>`
+    <line x1="20" y1="86" x2="80" y2="86" stroke="${TB}" stroke-width="12"/>
+    <circle cx="46" cy="56" r="9" fill="${TBH}"/>
+    <line x1="46" y1="65" x2="50" y2="86" stroke="${TB}" stroke-width="15"/>
+    <line x1="50" y1="86" x2="40" y2="104" stroke="${TB}" stroke-width="9"/>
+    <line x1="50" y1="86" x2="70" y2="98" stroke="${TB}" stroke-width="9"/>
+    <ellipse cx="48" cy="78" rx="11" ry="14" fill="${HL}" ${HLF}/>`
 };
 
 // Matcht een oefeningnaam (NL/EN trefwoorden) op een illustratie uit TRAINING_ILLUSTRATIONS.
