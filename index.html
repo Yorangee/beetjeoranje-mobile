@@ -333,8 +333,8 @@
       </div>
       <div class="training-session-title" id="trainingExTitle">Oefening</div>
       <div class="training-session-subtitle" id="trainingExSubtitle"></div>
-      <div class="training-session-illustration">
-        <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <div class="training-session-illustration" id="trainingExIllustrationWrap">
+        <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" id="trainingExIllustrationSvg">
           <defs>
             <!-- Zachte gloed achter de gemarkeerde spiergroep, zodat die er "highlighted" uitziet
                  zoals in een anatomie-illustratie i.p.v. gewoon een platte kleur. -->
@@ -353,7 +353,12 @@
           <circle cx="60" cy="60" r="58" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.14)"/>
           <g id="trainingExIllustrationBody" stroke-linecap="round" stroke-linejoin="round" fill="none"></g>
         </svg>
+        <div class="training-ex-photo hidden" id="trainingExPhoto">
+          <img class="training-ex-photo-frame frame-a" id="trainingExPhotoA" alt="">
+          <img class="training-ex-photo-frame frame-b" id="trainingExPhotoB" alt="">
+        </div>
       </div>
+      <div class="training-ex-photo-credit hidden" id="trainingExPhotoCredit">foto: free-exercise-db (publiek domein)</div>
       <div class="training-session-sets" id="trainingExSets"></div>
       <button type="button" class="training-session-check-btn" id="trainingExCheckBtn" title="Oefening afvinken">✓</button>
       <div class="training-confetti-layer" id="trainingConfettiLayer"></div>

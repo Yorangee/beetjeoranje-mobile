@@ -1020,30 +1020,107 @@ const TRAINING_ILLUSTRATIONS = {
     <ellipse cx="48" cy="78" rx="11" ry="14" fill="${HL}" ${HLF}/>`
 };
 
-// Matcht een oefeningnaam (NL/EN trefwoorden) op een illustratie uit TRAINING_ILLUSTRATIONS.
-// Volgorde is belangrijk: specifieke/samengestelde termen staan vóór generieke ("curl" alleen
-// als laatste, anders zou "leg curl" onterecht als bicep curl herkend worden).
-function trainingExerciseIllustration(name) {
+// Matcht een oefeningnaam (NL/EN trefwoorden) op een categorie-sleutel. Volgorde is belangrijk:
+// specifieke/samengestelde termen staan vóór generieke ("curl" alleen als laatste, anders zou
+// "leg curl" onterecht als bicep curl herkend worden).
+function trainingExerciseCategory(name) {
   const n = (name || '').toLowerCase();
   const has = (...keys) => keys.some((k) => n.includes(k));
 
-  if (has('squat', 'hurk')) return TRAINING_ILLUSTRATIONS.squat;
-  if (has('deadlift', 'dead lift')) return TRAINING_ILLUSTRATIONS.deadlift;
-  if (has('bench press', 'bankdruk', 'chest press', 'borstpers', 'borst pers')) return TRAINING_ILLUSTRATIONS.benchPress;
-  if (has('shoulder press', 'overhead press', 'schouderdruk', 'military press', 'militaire pers')) return TRAINING_ILLUSTRATIONS.shoulderPress;
-  if (has('pulldown', 'pull down', 'pull-up', 'pullup', 'chin-up', 'chinup', 'optrek')) return TRAINING_ILLUSTRATIONS.pulldown;
-  if (has('row', 'roeien', 'roei')) return TRAINING_ILLUSTRATIONS.row;
-  if (has('plank', 'planken')) return TRAINING_ILLUSTRATIONS.plank;
-  if (has('lunge', 'uitval')) return TRAINING_ILLUSTRATIONS.lunge;
-  if (has('leg press', 'beenpers', 'been pers')) return TRAINING_ILLUSTRATIONS.legPress;
-  if (has('fly', 'flye', 'vlinder')) return TRAINING_ILLUSTRATIONS.chestFly;
-  if (has('calf', 'kuit')) return TRAINING_ILLUSTRATIONS.calfRaise;
-  if (has('leg extension', 'leg curl', 'beenstrek', 'been curl', 'hamstring')) return TRAINING_ILLUSTRATIONS.legExtension;
-  if (has('tricep', 'triceps', 'kickback', 'skullcrusher', 'skull crusher')) return TRAINING_ILLUSTRATIONS.triceps;
-  if (has('crunch', 'sit-up', 'situp', 'buikspier')) return TRAINING_ILLUSTRATIONS.situp;
-  if (has('bicep', 'curl')) return TRAINING_ILLUSTRATIONS.bicepCurl;
+  if (has('squat', 'hurk')) return 'squat';
+  if (has('deadlift', 'dead lift')) return 'deadlift';
+  if (has('bench press', 'bankdruk', 'chest press', 'borstpers', 'borst pers')) return 'benchPress';
+  if (has('shoulder press', 'overhead press', 'schouderdruk', 'military press', 'militaire pers')) return 'shoulderPress';
+  if (has('pulldown', 'pull down', 'pull-up', 'pullup', 'chin-up', 'chinup', 'optrek')) return 'pulldown';
+  if (has('row', 'roeien', 'roei')) return 'row';
+  if (has('plank', 'planken')) return 'plank';
+  if (has('lunge', 'uitval')) return 'lunge';
+  if (has('leg press', 'beenpers', 'been pers')) return 'legPress';
+  if (has('fly', 'flye', 'vlinder')) return 'chestFly';
+  if (has('calf', 'kuit')) return 'calfRaise';
+  if (has('leg extension', 'leg curl', 'beenstrek', 'been curl', 'hamstring')) return 'legExtension';
+  if (has('tricep', 'triceps', 'kickback', 'skullcrusher', 'skull crusher')) return 'triceps';
+  if (has('crunch', 'sit-up', 'situp', 'buikspier')) return 'situp';
+  if (has('bicep', 'curl')) return 'bicepCurl';
 
-  return TRAINING_ILLUSTRATIONS.generic;
+  return 'generic';
+}
+
+function trainingExerciseIllustration(name) {
+  return TRAINING_ILLUSTRATIONS[trainingExerciseCategory(name)];
+}
+
+// Echte foto's per categorie, uit de publieke-domein oefeningendatabase free-exercise-db
+// (github.com/yuhonas/free-exercise-db, Unlicense — geen naamsvermelding vereist). Elke
+// categorie heeft 2 frames (start- en eindpositie) die als korte cross-fade "loop" getoond
+// worden. Als het laden mislukt (geen internet, of geblokkeerd in de preview-sandbox) valt de
+// illustratie automatisch terug op de getekende versie hierboven.
+const TRAINING_PHOTO_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+const TRAINING_PHOTO_IDS = {
+  bicepCurl: 'Dumbbell_Bicep_Curl',
+  triceps: 'Triceps_Pushdown',
+  squat: 'Barbell_Squat',
+  deadlift: 'Barbell_Deadlift',
+  benchPress: 'Barbell_Bench_Press_-_Medium_Grip',
+  shoulderPress: 'Seated_Dumbbell_Press',
+  pulldown: 'Wide-Grip_Lat_Pulldown',
+  row: 'Bent_Over_Barbell_Row',
+  plank: 'Plank',
+  lunge: 'Barbell_Lunge',
+  legPress: 'Leg_Press',
+  chestFly: 'Cable_Crossover',
+  calfRaise: 'Standing_Calf_Raises',
+  legExtension: 'Leg_Extensions',
+  situp: 'Crunches'
+  // generic: geen foto — blijft de getekende illustratie
+};
+
+function trainingExercisePhotoUrls(category) {
+  const id = TRAINING_PHOTO_IDS[category];
+  if (!id) return null;
+  return [TRAINING_PHOTO_BASE + id + '/0.jpg', TRAINING_PHOTO_BASE + id + '/1.jpg'];
+}
+
+// Laadt de 2 echte-fotoframes voor deze categorie (indien beschikbaar) en toont ze pas zodra
+// BEIDE succesvol geladen zijn — zo blijft de getekende illustratie gewoon zichtbaar totdat de
+// foto's er zijn, en valt het terug op de tekening bij een laadfout (geen internet, of
+// geblokkeerd in de preview-sandbox hier) zonder ooit een kapot-plaatje-icoon te tonen.
+let trainingPhotoLoadToken = 0;
+function trainingLoadExercisePhoto(category) {
+  const myToken = ++trainingPhotoLoadToken;
+  const photoWrap = document.getElementById('trainingExPhoto');
+  const creditEl = document.getElementById('trainingExPhotoCredit');
+  const imgA = document.getElementById('trainingExPhotoA');
+  const imgB = document.getElementById('trainingExPhotoB');
+  if (!photoWrap || !imgA || !imgB) return;
+
+  // Meteen verbergen totdat (als het lukt) de nieuwe foto's klaar zijn — voorkomt dat de vorige
+  // oefening se foto even blijft staan terwijl de nieuwe nog laadt.
+  photoWrap.classList.add('hidden');
+  if (creditEl) creditEl.classList.add('hidden');
+  imgA.removeAttribute('src');
+  imgB.removeAttribute('src');
+
+  const urls = trainingExercisePhotoUrls(category);
+  if (!urls) return;
+
+  let loaded = 0;
+  let failed = false;
+  const onDone = (ok) => {
+    if (myToken !== trainingPhotoLoadToken) return; // ondertussen naar andere oefening gewisseld
+    if (!ok) { failed = true; return; }
+    loaded++;
+    if (loaded === 2 && !failed) {
+      photoWrap.classList.remove('hidden');
+      if (creditEl) creditEl.classList.remove('hidden');
+    }
+  };
+  imgA.onload = () => onDone(true);
+  imgB.onload = () => onDone(true);
+  imgA.onerror = () => onDone(false);
+  imgB.onerror = () => onDone(false);
+  imgA.src = urls[0];
+  imgB.src = urls[1];
 }
 
 function isoWeekNumber(d) {
@@ -1265,8 +1342,10 @@ function renderTrainingSessionExercise() {
   const name = (trainingSessionNames[trainingSessionExIndex] || '').trim();
   document.getElementById('trainingExTitle').textContent = name || ('Oefening ' + (trainingSessionExIndex + 1));
 
+  const category = trainingExerciseCategory(name);
   const illustrationEl = document.getElementById('trainingExIllustrationBody');
-  if (illustrationEl) illustrationEl.innerHTML = trainingExerciseIllustration(name);
+  if (illustrationEl) illustrationEl.innerHTML = TRAINING_ILLUSTRATIONS[category];
+  trainingLoadExercisePhoto(category);
 
   const lastKg = trainingSessionBaselinePR[trainingSessionExIndex];
   const subtitleEl = document.getElementById('trainingExSubtitle');
