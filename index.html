@@ -16,7 +16,10 @@
   <div class="topbar">
     <button type="button" class="topbar-icon-btn" id="hamburgerBtn" title="Menu">☰</button>
     <div class="topbar-brand"><span class="topbar-brand-dot"></span>BeetjeOranje</div>
-    <button type="button" class="topbar-icon-btn" id="settingsBtn" title="Instellingen">⚙</button>
+    <div class="topbar-actions">
+      <button type="button" class="topbar-icon-btn" id="refreshAppBtn" title="Ververs app">↻</button>
+      <button type="button" class="topbar-icon-btn" id="settingsBtn" title="Instellingen">⚙</button>
+    </div>
   </div>
 
   <div class="update-banner" id="updateBanner">
@@ -85,7 +88,6 @@
         <h2>
           Trainingsschema
           <span class="training-header-actions">
-            <button type="button" class="training-icon-btn" id="trainingEditBtn" title="Oefeningen bewerken">✎</button>
             <button type="button" class="training-icon-btn training-play-btn" id="trainingPlayBtn" title="Start training">▶</button>
           </span>
         </h2>
@@ -298,16 +300,6 @@
     </div>
   </div>
 
-  <!-- ---------- Trainingsschema: oefeningen bewerken ---------- -->
-  <div class="modal-overlay hidden" id="trainingEditOverlay">
-    <div class="modal-sheet">
-      <button type="button" class="modal-close" id="trainingEditCloseBtn">✕</button>
-      <h3 id="trainingEditTitle">Oefeningen bewerken</h3>
-      <div id="trainingEditFields"></div>
-      <button type="button" class="btn-primary" id="trainingEditSaveBtn">Opslaan</button>
-    </div>
-  </div>
-
   <!-- ---------- Trainingsschema: sessie-scherm (schermvullend) ---------- -->
   <div class="modal-overlay hidden training-session-overlay" id="trainingSessionOverlay">
     <div class="training-session-box" id="trainingSessionBox">
@@ -354,6 +346,7 @@
       </div>
       <div class="training-ex-photo-credit hidden" id="trainingExPhotoCredit">foto: free-exercise-db (publiek domein)</div>
       <div class="training-session-sets" id="trainingExSets"></div>
+      <button type="button" class="training-session-finish-btn" id="trainingSessionFinishBtn" title="Training afronden">Training afronden</button>
       <button type="button" class="training-session-check-btn" id="trainingExCheckBtn" title="Oefening afvinken">✓</button>
       <div class="training-confetti-layer" id="trainingConfettiLayer"></div>
     </div>

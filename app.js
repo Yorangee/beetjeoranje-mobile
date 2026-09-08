@@ -25,7 +25,10 @@ window.addEventListener('unhandledrejection', (e) => {
 // ---------- Service worker + update-melding ----------
 function setupServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('service-worker.js').then((reg) => {
+  // updateViaCache: 'none' zorgt dat de browser service-worker.js zelf NOOIT uit de gewone
+  // HTTP-cache serveert (browsers cachen dat bestand anders tot 24 uur) — zonder dit kan het
+  // dus letterlijk een dag duren voordat een update-check de nieuwe versie ziet.
+  navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).then((reg) => {
     reg.addEventListener('updatefound', () => {
       const worker = reg.installing;
       if (!worker) return;
@@ -49,6 +52,38 @@ function setupServiceWorker() {
       if (reg && reg.waiting) reg.waiting.postMessage('skipWaiting');
     });
   });
+
+  document.getElementById('refreshAppBtn').addEventListener('click', manualRefreshApp);
+}
+
+// Handmatige "ververs"-knop, altijd zichtbaar in de topbar — nodig omdat de automatische
+// update-melding niet altijd op tijd verschijnt. Forceert een verse check op een nieuwere
+// service-worker.js, activeert die meteen als hij gevonden wordt, ruimt anders voor de
+// zekerheid de oude opgeslagen bestanden op, en herlaadt de pagina hoe dan ook.
+async function manualRefreshApp() {
+  const btn = document.getElementById('refreshAppBtn');
+  if (btn) btn.classList.add('spinning');
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.update();
+        // Een net gevonden nieuwe worker heeft even tijd nodig om te installeren (cache vullen).
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        if (reg.waiting) {
+          reg.waiting.postMessage('skipWaiting');
+          return; // de controllerchange-listener hierboven herlaadt de pagina zelf
+        }
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    }
+  } catch (e) {
+    console.error('handmatig verversen mislukt', e);
+  }
+  window.location.reload();
 }
 
 // ---------- Begroeting bovenaan "Algemeen" (vervangt de statische "Vandaag"-titel) ----------
@@ -167,16 +202,12 @@ function setupSport() {
   document.getElementById('trainingDayPrevBtn').addEventListener('click', () => shiftTrainingDay(-1));
   document.getElementById('trainingDayNextBtn').addEventListener('click', () => shiftTrainingDay(1));
 
-  document.getElementById('trainingEditBtn').addEventListener('click', openTrainingEditModal);
-  document.getElementById('trainingEditCloseBtn').addEventListener('click', closeTrainingEditModal);
-  document.getElementById('trainingEditOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeTrainingEditModal(); });
-  document.getElementById('trainingEditSaveBtn').addEventListener('click', saveTrainingEditModal);
-
   document.getElementById('trainingPlayBtn').addEventListener('click', startTrainingSession);
   document.getElementById('trainingSessionCloseBtn').addEventListener('click', closeTrainingSession);
   document.getElementById('trainingExPrevBtn').addEventListener('click', () => trainingGoToExercise(-1));
   document.getElementById('trainingExNextBtn').addEventListener('click', () => trainingGoToExercise(1));
   document.getElementById('trainingExCheckBtn').addEventListener('click', trainingMarkExerciseDone);
+  document.getElementById('trainingSessionFinishBtn').addEventListener('click', finishTrainingSession);
 }
 
 // ---------- ZZP: knoppen ----------

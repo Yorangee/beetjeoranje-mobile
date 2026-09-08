@@ -70,12 +70,13 @@ body {
 
 /* ---------- Topbar ---------- */
 .topbar {
-  display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; column-gap: 8px;
+  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; column-gap: 8px;
   padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
   flex: none;
 }
 .topbar-brand { justify-self: center; display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; color: #fff; text-shadow: 0 1px 8px rgba(120,50,0,0.25); }
 .topbar-brand-dot { width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(255,255,255,0.25); }
+.topbar-actions { display: flex; align-items: center; gap: 8px; justify-self: end; }
 .topbar-icon-btn {
   width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); cursor: pointer;
   background: rgba(255,255,255,0.22); color: #fff; font-size: 16px;
@@ -86,7 +87,9 @@ body {
 }
 .topbar-icon-btn:active { background: rgba(255,255,255,0.36); transform: scale(0.94); }
 #hamburgerBtn { justify-self: start; }
-#settingsBtn { justify-self: end; }
+/* "Ververs app"-knop: draait terwijl er handmatig gecontroleerd wordt op een nieuwere versie. */
+#refreshAppBtn.spinning { animation: refreshBtnSpin 0.8s linear infinite; }
+@keyframes refreshBtnSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* ---------- Update-banner ---------- */
 .update-banner {
@@ -704,6 +707,15 @@ main {
 }
 .training-session-check-btn:active { transform: scale(0.92); }
 .training-session-check-btn.done { background: linear-gradient(180deg, #6BD99A, var(--success)); box-shadow: 0 10px 26px rgba(46,125,79,0.4); }
+
+.training-session-finish-btn {
+  position: absolute; left: 22px; bottom: calc(26px + env(safe-area-inset-bottom));
+  height: 48px; padding: 0 18px; border-radius: 999px; border: 1px solid rgba(242,144,61,0.4);
+  background: rgba(242,144,61,0.16); backdrop-filter: blur(6px); color: #fff; font-size: 13px; font-weight: 800;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; white-space: nowrap;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+.training-session-finish-btn:active { transform: scale(0.94); background: rgba(242,144,61,0.28); }
 
 .training-confetti-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .confetti-piece {

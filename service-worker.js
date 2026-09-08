@@ -1,6 +1,6 @@
 // Verhoog dit versienummer bij elke deploy — dat forceert een verse cache
 // en triggert de "nieuwe versie beschikbaar" melding in de app.
-const CACHE_NAME = 'beetjeoranje-mobile-v28';
+const CACHE_NAME = 'beetjeoranje-mobile-v32';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -41,7 +41,7 @@ self.addEventListener('fetch', (event) => {
   if (!isAppShell) return;
 
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-store' })
       .then((res) => {
         const clone = res.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
