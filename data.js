@@ -87,6 +87,22 @@ async function ensureSharedData() {
   return sharedData;
 }
 
+// Ververst de gedeelde Drive-data (notities, budget, enz.) buiten de normale "één keer
+// per sessie"-cache om. Gebruikt wanneer de app weer in beeld komt na een tijdje op de
+// achtergrond te zijn geweest (zie app.js, visibilitychange) — zonder dit bleef een
+// notitie die ondertussen op een ander apparaat (bijv. het desktop-dashboard) is
+// aangemaakt hier onzichtbaar totdat de pagina een volledige herlaad kreeg (bijv. via
+// de "nieuwe versie beschikbaar"-melding van de service worker). Slaat de refresh over
+// als er nog een lokale wijziging klaarstaat om weggeschreven te worden (schedulePush-
+// SharedData timer loopt nog) — anders zou die overschreven kunnen worden door oudere
+// cloud-data.
+async function refreshSharedDataFromDrive() {
+  if (sharedDataPushTimer) return false;
+  sharedDataLoaded = false;
+  await ensureSharedData();
+  return true;
+}
+
 function getSharedKey(key, fallback) {
   try {
     const raw = sharedData ? sharedData[key] : null;

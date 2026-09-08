@@ -86,6 +86,17 @@ function setupNavDrawer() {
 }
 
 // ---------- Tab-navigatie ----------
+// Eén plek die bepaalt welke render-functies bij welk tabblad horen — gebruikt door zowel
+// de tab-klik hieronder (cache-only, geen netwerk) als refreshSharedDataInBackground()
+// verderop (na een echte herophaal van de gedeelde Drive-data).
+function renderSharedDataViewFor(target) {
+  if (target === 'algemeen') renderNotesView();
+  if (target === 'budget') renderBudgetView();
+  if (target === 'sport') { renderWeightBody(); loadNutritionPlan(); renderNutritionBody(); renderTrainingWeekLabel(); renderTrainingDayLabel(); renderTrainingBody(); }
+  if (target === 'zzp') { renderBtwBody(); renderIncomeBody(); }
+  if (target === 'auto') { renderApkBody(); renderCarVisitsBody(); }
+}
+
 function setupNav() {
   document.querySelectorAll('.nav-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -95,11 +106,7 @@ function setupNav() {
 
       // Al eerder geladen deze sessie: meteen uit de cache renderen, geen netwerk/token nodig.
       if (sharedDataLoaded) {
-        if (target === 'algemeen') renderNotesView();
-        if (target === 'budget') renderBudgetView();
-        if (target === 'sport') { renderWeightBody(); loadNutritionPlan(); renderNutritionBody(); renderTrainingWeekLabel(); renderTrainingDayLabel(); renderTrainingBody(); }
-        if (target === 'zzp') { renderBtwBody(); renderIncomeBody(); }
-        if (target === 'auto') { renderApkBody(); renderCarVisitsBody(); }
+        renderSharedDataViewFor(target);
         return;
       }
 
@@ -674,6 +681,26 @@ async function loadTasks() {
   }
 }
 
+// ---------- Gedeelde Drive-data (notities, budget, enz.) op de achtergrond verversen ----------
+// data.js laadt deze data maar één keer per sessie (sharedDataLoaded) — prima voor snel
+// wisselen tussen tabbladen, maar het betekent dat wijzigingen die ondertussen op een
+// ander apparaat (bijv. het desktop-dashboard) zijn gemaakt hier onzichtbaar blijven
+// totdat de pagina volledig herlaadt. Dit haalt de data alsnog opnieuw op zodra de app
+// weer in beeld komt (of periodiek terwijl hij open staat) en herrendert alleen het
+// zichtbare tabblad.
+async function refreshSharedDataInBackground() {
+  if (typeof sharedDataLoaded === 'undefined' || !sharedDataLoaded) return; // eerste keer laden loopt al via de normale load*-functies
+  try {
+    const refreshed = await refreshSharedDataFromDrive();
+    if (!refreshed) return;
+    const activeBtn = document.querySelector('.nav-btn.active');
+    const target = activeBtn ? activeBtn.getAttribute('data-nav') : 'algemeen';
+    renderSharedDataViewFor(target);
+  } catch (e) {
+    console.error('achtergrond-refresh van gedeelde data mislukt', e);
+  }
+}
+
 // ---------- Google-script inladen afwachten ----------
 // Het gsi/client-script staat als async/defer in index.html, en kan dus soms ná
 // DOMContentLoaded pas echt klaar zijn (vooral op een tragere mobiele verbinding).
@@ -750,5 +777,15 @@ document.addEventListener('visibilitychange', () => {
     loadAgenda();
     loadNotesIfSignedIn();
     refreshGoogleStatus();
+    // Haalt notities/budget/enz. opnieuw op vanaf Drive i.p.v. de sessie-cache te
+    // vertrouwen — zie refreshSharedDataInBackground() hierboven.
+    refreshSharedDataInBackground();
   }
 });
+
+// Vangnet voor als de app lang open blijft staan zonder ooit naar de achtergrond te gaan
+// (dus zonder dat visibilitychange vuurt): controleert elke 2 minuten alsnog op nieuwe
+// gedeelde data terwijl het scherm actief is.
+setInterval(() => {
+  if (document.visibilityState === 'visible') refreshSharedDataInBackground();
+}, 2 * 60 * 1000);
