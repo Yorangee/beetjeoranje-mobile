@@ -47,13 +47,21 @@ function setupServiceWorker() {
     window.location.reload();
   });
 
-  document.getElementById('updateReloadBtn').addEventListener('click', () => {
-    navigator.serviceWorker.getRegistration().then((reg) => {
-      if (reg && reg.waiting) reg.waiting.postMessage('skipWaiting');
+  // Defensief (element bestaat mogelijk niet) — zodat een mismatch tussen een oudere
+  // gecachte index.html en een nieuwere app.js tijdens een update-overgang nooit meer de
+  // hele DOMContentLoaded-init kan laten crashen (dat brak eerder de Google-login: die
+  // wordt pas later in dezelfde handler gestart, en kwam dan nooit meer aan de beurt).
+  const reloadBtn = document.getElementById('updateReloadBtn');
+  if (reloadBtn) {
+    reloadBtn.addEventListener('click', () => {
+      navigator.serviceWorker.getRegistration().then((reg) => {
+        if (reg && reg.waiting) reg.waiting.postMessage('skipWaiting');
+      });
     });
-  });
+  }
 
-  document.getElementById('refreshAppBtn').addEventListener('click', manualRefreshApp);
+  const refreshBtn = document.getElementById('refreshAppBtn');
+  if (refreshBtn) refreshBtn.addEventListener('click', manualRefreshApp);
 }
 
 // Handmatige "ververs"-knop, altijd zichtbaar in de topbar — nodig omdat de automatische
@@ -767,31 +775,39 @@ function bootGoogleAuthWhenReady() {
   }, 100);
 }
 
+// Voert een boot-stap uit en vangt fouten op i.p.v. ze te laten crashen — één kapotte
+// setup-stap (bijv. door een tijdelijke mismatch tussen gecachte bestanden tijdens een
+// update) mag nooit de rest van de boot-volgorde blokkeren. Dat brak eerder de
+// Google-login, die pas later in dezelfde volgorde start.
+function safeBoot(label, fn) {
+  try { fn(); } catch (e) { console.error('boot-stap mislukt: ' + label, e); }
+}
+
 // ---------- Boot ----------
 document.addEventListener('DOMContentLoaded', () => {
   // Eerst de eventueel bewaarde inlog terughalen — dit is een pure localStorage-lezing en
   // heeft niets nodig van Google's externe script, dus dit mag en moet als allereerste.
-  loadStoredGoogleToken();
+  safeBoot('loadStoredGoogleToken', loadStoredGoogleToken);
 
-  renderGreeting();
-  setupServiceWorker();
-  setupNav();
-  setupNavDrawer();
-  setupSettings();
-  setupBudgetNav();
-  setupNotes();
-  setupSport();
-  setupZzp();
-  setupAuto();
-  setupBrainDump();
-  setupTaskEdit();
-  bootGoogleAuthWhenReady();
-  loadAgenda();
-  loadTasks();
-  loadNotesIfSignedIn();
-  document.getElementById('agendaRefreshBtn').addEventListener('click', () => {
-    refreshGoogleStatus();
-    loadAgenda();
+  safeBoot('renderGreeting', renderGreeting);
+  safeBoot('setupServiceWorker', setupServiceWorker);
+  safeBoot('setupNav', setupNav);
+  safeBoot('setupNavDrawer', setupNavDrawer);
+  safeBoot('setupSettings', setupSettings);
+  safeBoot('setupBudgetNav', setupBudgetNav);
+  safeBoot('setupNotes', setupNotes);
+  safeBoot('setupSport', setupSport);
+  safeBoot('setupZzp', setupZzp);
+  safeBoot('setupAuto', setupAuto);
+  safeBoot('setupBrainDump', setupBrainDump);
+  safeBoot('setupTaskEdit', setupTaskEdit);
+  safeBoot('bootGoogleAuthWhenReady', bootGoogleAuthWhenReady);
+  safeBoot('loadAgenda', loadAgenda);
+  safeBoot('loadTasks', loadTasks);
+  safeBoot('loadNotesIfSignedIn', loadNotesIfSignedIn);
+  safeBoot('agendaRefreshBtn', () => {
+    const btn = document.getElementById('agendaRefreshBtn');
+    if (btn) btn.addEventListener('click', () => { refreshGoogleStatus(); loadAgenda(); });
   });
 });
 
