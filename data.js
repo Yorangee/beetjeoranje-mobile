@@ -688,6 +688,12 @@ function saveWeightLog(log) { setSharedKey(WEIGHT_LOG_KEY, log); }
 async function loadSportView() {
   const el = document.getElementById('weightBody');
   el.innerHTML = '<div class="loading">Even ophalen…</div>';
+  // Oefeningen staan vast in code (niet afhankelijk van gedeelde/synced data), dus
+  // deze meteen tonen — niet pas nadat ensureSharedData() klaar is. Zo staan ze er
+  // altijd meteen, ook vóór het wisselen van dag.
+  renderTrainingWeekLabel();
+  renderTrainingDayLabel();
+  renderTrainingBody();
   try {
     await ensureSharedData();
     renderWeightBody();
@@ -695,7 +701,7 @@ async function loadSportView() {
     renderNutritionBody();
     renderTrainingWeekLabel();
     renderTrainingDayLabel();
-    renderTrainingBody();
+    renderTrainingBody(); // opnieuw, nu met eventuele PR's uit de gedeelde data
   } catch (e) {
     console.error(e);
     el.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
@@ -891,12 +897,36 @@ function addNutritionDay() {
 }
 
 // ================= SPORT: TRAININGSSCHEMA =================
-const TRAINING_SCHEMA_KEY = 'beetjeoranje-dashboard-training-schema-v1';
 const TRAINING_LOG_KEY = 'beetjeoranje-dashboard-training-log-v1';
-const TRAINING_EX_COUNT = 8;
 const TRAINING_SET_COUNT = 3;
 const TRAINING_DAY_KEYS = ['dag1', 'dag2'];
 const TRAINING_DAY_LABELS = { dag1: 'Dag 1', dag2: 'Dag 2' };
+
+// Vast trainingsschema — er is bewust geen bewerkscherm meer in de app; wijzig het schema door
+// deze twee lijsten hier aan te passen wanneer je dat in de chat doorgeeft. Het aantal oefeningen
+// mag per dag verschillen (zie trainingDayExCount()).
+const TRAINING_FIXED_SCHEMA = {
+  dag1: [
+    'Shoulder press',
+    'Bench press',
+    'Squat (barbell)',
+    'Tricep pushdown',
+    'Machine crunch',
+    'Bicep curls',
+    'Romanian Deadlift',
+    'Lat pull-ups'
+  ],
+  dag2: [
+    'Leg press',
+    'Incline dumbbell press',
+    'Barbell row / seated row',
+    'Lateral Raises',
+    'Deadlift',
+    'Hammer curls',
+    'Overhead tricep extension'
+  ]
+};
+function trainingDayExCount(day) { return (TRAINING_FIXED_SCHEMA[day] || []).length; }
 
 // Matcht een oefeningnaam (NL/EN trefwoorden) op een categorie-sleutel. Volgorde is belangrijk:
 // specifieke/samengestelde termen staan vóór generieke ("curl" alleen als laatste, anders zou
@@ -1005,18 +1035,9 @@ function isoWeekNumber(d) {
   return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
 
-function defaultTrainingSchema() {
-  return {
-    dag1: Array.from({ length: TRAINING_EX_COUNT }, () => ''),
-    dag2: Array.from({ length: TRAINING_EX_COUNT }, () => '')
-  };
-}
 function getTrainingSchema() {
-  const raw = getSharedKey(TRAINING_SCHEMA_KEY, null);
-  if (raw && Array.isArray(raw.dag1) && Array.isArray(raw.dag2)) return raw;
-  return defaultTrainingSchema();
+  return { dag1: TRAINING_FIXED_SCHEMA.dag1.slice(), dag2: TRAINING_FIXED_SCHEMA.dag2.slice() };
 }
-function saveTrainingSchema(schema) { setSharedKey(TRAINING_SCHEMA_KEY, schema); }
 
 // Log-structuur: { [maandag-ymd]: { dag1: [ {kgs:[n,n,n], done} | null, ... 8 plekken ], dag2: [...] } }
 function getTrainingLog() { return getSharedKey(TRAINING_LOG_KEY, {}); }
@@ -1076,14 +1097,11 @@ function renderTrainingBody() {
   if (!el) return;
   const schema = getTrainingSchema();
   const names = schema[trainingActiveDay] || [];
-  el.innerHTML = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => {
-    const name = (names[i] || '').trim();
+  el.innerHTML = names.map((name, i) => {
     const pr = trainingLastBestKg(trainingActiveDay, i);
-    // De naam- en kg-kolom blijven allebei altijd staan (ook zonder invulling), met
-    // "Oefening N" resp. een streepje als placeholder — zo schuift de rij niet raar op.
     return `<div class="training-ex-row">
       <span class="training-ex-num">${i + 1}</span>
-      <span class="training-ex-name${name ? '' : ' empty'}">${name ? esc(name) : 'Oefening ' + (i + 1)}</span>
+      <span class="training-ex-name">${esc(name)}</span>
       <span class="training-ex-pr">${pr != null ? trainingFmtKg(pr) + ' kg' : '—'}</span>
     </div>`;
   }).join('');
@@ -1091,34 +1109,6 @@ function renderTrainingBody() {
 
 function trainingFmtKg(n) {
   return (Math.round(n * 10) / 10).toString().replace('.', ',');
-}
-
-// ---------- Oefeningen bewerken (potlood) ----------
-function openTrainingEditModal() {
-  const schema = getTrainingSchema();
-  const names = schema[trainingActiveDay] || [];
-  document.getElementById('trainingEditTitle').textContent = 'Oefeningen bewerken — ' + TRAINING_DAY_LABELS[trainingActiveDay];
-  const fieldsEl = document.getElementById('trainingEditFields');
-  fieldsEl.innerHTML = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => `
-    <div class="modal-field">
-      <label for="trainingExInput${i}">Oefening ${i + 1}</label>
-      <input type="text" id="trainingExInput${i}" value="${esc(names[i] || '')}" placeholder="Bijv. Squat">
-    </div>`).join('');
-  document.getElementById('trainingEditOverlay').classList.remove('hidden');
-}
-function closeTrainingEditModal() {
-  document.getElementById('trainingEditOverlay').classList.add('hidden');
-}
-function saveTrainingEditModal() {
-  const schema = getTrainingSchema();
-  const names = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => {
-    const inp = document.getElementById('trainingExInput' + i);
-    return inp ? inp.value.trim() : '';
-  });
-  schema[trainingActiveDay] = names;
-  saveTrainingSchema(schema);
-  closeTrainingEditModal();
-  renderTrainingBody();
 }
 
 // ---------- Trainingssessie (schermvullend) ----------
@@ -1147,29 +1137,22 @@ function trainingUpdateTimer() {
 }
 
 function startTrainingSession() {
-  // Het trainingsschema (welke 8 oefeningen) staat los van de week — dat is bewust één
-  // vaste lijst per dag die voor elke week hetzelfde is, alleen de ingevoerde kg's per
-  // sessie verschillen per week. Daarom mag een training pas starten als alle 8 plekken
-  // voor de gekozen dag zijn ingevuld.
+  // Het trainingsschema staat vast in code (TRAINING_FIXED_SCHEMA) en is altijd compleet — geen
+  // "eerst invullen"-check meer nodig.
   const schema = getTrainingSchema();
-  const names = schema[trainingActiveDay] || [];
-  const filledCount = names.filter((n) => (n || '').trim()).length;
-  if (filledCount < TRAINING_EX_COUNT) {
-    alert('Vul eerst alle ' + TRAINING_EX_COUNT + ' oefeningen in voor ' + TRAINING_DAY_LABELS[trainingActiveDay] + ' (via het potlood-icoon) voordat je een training kunt starten.');
-    return;
-  }
 
   trainingSessionDay = trainingActiveDay;
   trainingSessionWeek = trainingActiveWeekMonday;
   trainingSessionExIndex = 0;
   trainingSessionNames = (schema[trainingSessionDay] || []).slice();
+  const exCount = trainingSessionNames.length;
   const log = getTrainingLog();
   const weekLog = (log[trainingSessionWeek] && log[trainingSessionWeek][trainingSessionDay]) || [];
-  trainingSessionEntries = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => {
+  trainingSessionEntries = Array.from({ length: exCount }, (_, i) => {
     const existing = weekLog[i];
     return existing ? { kgs: (existing.kgs || []).slice(0, TRAINING_SET_COUNT), done: !!existing.done } : { kgs: [], done: false };
   });
-  trainingSessionBaselinePR = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => trainingLastBestKg(trainingSessionDay, i));
+  trainingSessionBaselinePR = Array.from({ length: exCount }, (_, i) => trainingLastBestKg(trainingSessionDay, i));
 
   document.getElementById('trainingSessionOverlay').classList.remove('hidden');
   renderTrainingSessionExercise();
@@ -1242,7 +1225,7 @@ function renderTrainingSessionExercise() {
   const prevBtn = document.getElementById('trainingExPrevBtn');
   const nextBtn = document.getElementById('trainingExNextBtn');
   if (prevBtn) prevBtn.disabled = trainingSessionExIndex === 0;
-  if (nextBtn) nextBtn.disabled = trainingSessionExIndex === TRAINING_EX_COUNT - 1;
+  if (nextBtn) nextBtn.disabled = trainingSessionExIndex === trainingSessionNames.length - 1;
 
   const entry = trainingSessionEntries[trainingSessionExIndex] || { kgs: [], done: false };
   const setsEl = document.getElementById('trainingExSets');
@@ -1269,17 +1252,18 @@ function renderTrainingSessionExercise() {
 // tonen welke oefeningen al zijn afgevinkt en welke actief is, en springen bij een klik direct
 // naar die oefening (zodat de hele sessie interactief/navigeerbaar aanvoelt, niet alleen lineair).
 function renderTrainingSessionProgress() {
+  const exCount = trainingSessionNames.length;
   const doneCount = trainingSessionEntries.filter((e) => e && e.done).length;
 
   const labelEl = document.getElementById('trainingSessionProgressLabel');
-  if (labelEl) labelEl.textContent = doneCount + ' / ' + TRAINING_EX_COUNT + ' oefeningen';
+  if (labelEl) labelEl.textContent = doneCount + ' / ' + exCount + ' oefeningen';
 
   const fillEl = document.getElementById('trainingSessionProgressFill');
-  if (fillEl) fillEl.style.width = (doneCount / TRAINING_EX_COUNT * 100) + '%';
+  if (fillEl) fillEl.style.width = (exCount ? (doneCount / exCount * 100) : 0) + '%';
 
   const dotsEl = document.getElementById('trainingSessionDots');
   if (dotsEl) {
-    dotsEl.innerHTML = Array.from({ length: TRAINING_EX_COUNT }, (_, i) => {
+    dotsEl.innerHTML = Array.from({ length: exCount }, (_, i) => {
       const cls = ['training-session-dot'];
       if (trainingSessionEntries[i] && trainingSessionEntries[i].done) cls.push('done');
       if (i === trainingSessionExIndex) cls.push('current');
@@ -1298,14 +1282,14 @@ function trainingGoToExercise(delta) {
   trainingSaveCurrentSetInputs();
   trainingPersistSessionEntries();
   const next = trainingSessionExIndex + delta;
-  if (next < 0 || next >= TRAINING_EX_COUNT) return;
+  if (next < 0 || next >= trainingSessionNames.length) return;
   trainingSessionExIndex = next;
   renderTrainingSessionExercise();
 }
 
 // Direct naar een specifieke oefening springen via een klik op een stipje.
 function trainingJumpToExercise(idx) {
-  if (idx === trainingSessionExIndex || idx < 0 || idx >= TRAINING_EX_COUNT) return;
+  if (idx === trainingSessionExIndex || idx < 0 || idx >= trainingSessionNames.length) return;
   trainingSaveCurrentSetInputs();
   trainingPersistSessionEntries();
   trainingSessionExIndex = idx;
@@ -1339,7 +1323,7 @@ function trainingMarkExerciseDone() {
     setTimeout(trainingShowCompletionPopup, 700);
   } else {
     setTimeout(() => {
-      if (trainingSessionExIndex < TRAINING_EX_COUNT - 1) trainingGoToExercise(1);
+      if (trainingSessionExIndex < trainingSessionNames.length - 1) trainingGoToExercise(1);
     }, 850);
   }
 }
@@ -1353,7 +1337,7 @@ function trainingBuildProgressMessage() {
   const dropped = [];
   let firstTime = 0;
 
-  for (let i = 0; i < TRAINING_EX_COUNT; i++) {
+  for (let i = 0; i < trainingSessionNames.length; i++) {
     const name = (trainingSessionNames[i] || '').trim() || ('Oefening ' + (i + 1));
     const entry = trainingSessionEntries[i];
     const filled = entry ? (entry.kgs || []).filter((n) => typeof n === 'number' && !isNaN(n) && n > 0) : [];
@@ -1401,6 +1385,20 @@ function trainingBuildProgressMessage() {
 
 function trainingShowCompletionPopup() {
   alert('Lekker bezig! 🎉\n\n' + trainingBuildProgressMessage());
+}
+
+// "Training afronden"-knop: rondt de hele sessie in één keer af, ongeacht welke oefeningen
+// via het vinkje zijn afgevinkt. Slaat alle ingevulde gewichten op, sluit het sessiescherm en
+// toont een positieve samenvatting. De gewichten zijn daarna direct zichtbaar in het overzicht
+// (de Trainingsschema-lijst toont steeds de laatst opgeslagen kg per oefening).
+function finishTrainingSession() {
+  trainingSaveCurrentSetInputs();
+  trainingPersistSessionEntries();
+  if (trainingSessionTimerHandle) { clearInterval(trainingSessionTimerHandle); trainingSessionTimerHandle = null; }
+  document.getElementById('trainingSessionOverlay').classList.add('hidden');
+  renderTrainingBody(); // gewichten meteen zichtbaar in het overzicht
+  const message = trainingBuildProgressMessage();
+  setTimeout(() => alert('Training afgerond! 🎉\n\n' + message), 150);
 }
 
 function trainingSpawnConfetti() {
