@@ -154,6 +154,27 @@ async function loadNotesView() {
   }
 }
 
+// Het desktop-dashboard is geëvolueerd naar een pagina-canvas-editor per notitie
+// (note.pages: [{ id, title, bodyHtml, elements }], meerdere pagina's + losse
+// tekst/kop-"elementen" per pagina), i.p.v. één plat note.contentHTML-veld. Zodra een notitie op
+// desktop geopend/bewerkt is, staat de eigenlijke inhoud dus in note.pages[...].bodyHtml en blijft
+// note.contentHTML leeg/verouderd — dat gaf op mobiel een lege notitie terwijl titel/datum
+// (aparte velden) wél gewoon klopten. Deze helper leest daarom eerst de actieve/eerste pagina,
+// en valt pas terug op de oude platte velden voor notities die nog nooit op desktop met de
+// nieuwe editor zijn geopend. Mobiel toont/bewerkt alleen doorlopende paginatekst — losse
+// canvas-elementen (afbeeldingen, kopblokken) op een pagina en eventuele extra pagina's worden
+// hier niet getoond, maar blijven bij het opslaan vanaf mobiel wel gewoon intact staan.
+function noteReadableHtml(note) {
+  if (!note) return '';
+  if (Array.isArray(note.pages) && note.pages.length) {
+    const page = note.pages.find((p) => p.id === note.activePageId) || note.pages[0];
+    if (page && page.bodyHtml) return page.bodyHtml;
+  }
+  if (note.contentHTML) return note.contentHTML;
+  if (note.content) return esc(note.content).replace(/\n/g, '<br>');
+  return '';
+}
+
 function renderNotesView() {
   const el = document.getElementById('notesList');
   const notes = getNotes().slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -162,7 +183,7 @@ function renderNotesView() {
     <div class="note-row" data-id="${esc(n.id)}">
       <div class="note-row-title">${esc(n.title || '(geen titel)')}</div>
       <div class="note-row-meta">${esc(n.category || 'Algemeen')} · ${formatNoteDate(n.updatedAt)}</div>
-      <div class="note-row-preview">${esc(htmlToPlainText(n.contentHTML || '')).slice(0, 90)}</div>
+      <div class="note-row-preview">${esc(htmlToPlainText(noteReadableHtml(n))).slice(0, 90)}</div>
     </div>`).join('');
   el.querySelectorAll('.note-row').forEach((row) => {
     row.addEventListener('click', () => openNoteEditor(row.getAttribute('data-id')));
@@ -252,7 +273,7 @@ function openNoteEditor(id) {
 
   document.getElementById('noteTitleInput').value = note ? (note.title || '') : '';
   sel.value = note ? (note.category || cats[0]) : cats[0];
-  document.getElementById('noteBodyInput').innerHTML = note ? (note.contentHTML || '') : '';
+  document.getElementById('noteBodyInput').innerHTML = note ? noteReadableHtml(note) : '';
   document.getElementById('noteDeleteBtn').style.display = note ? '' : 'none';
   document.getElementById('noteEditorOverlay').classList.remove('hidden');
   const popover = document.getElementById('rteColorPopover');
@@ -282,11 +303,21 @@ function saveNoteFromEditor() {
   if (editingNoteId) {
     const idx = notes.findIndex((n) => n.id === editingNoteId);
     if (idx !== -1) {
-      notes[idx].title = title;
-      notes[idx].category = category;
-      notes[idx].contentHTML = contentHTML;
-      notes[idx].content = plain;
-      notes[idx].updatedAt = now;
+      const n = notes[idx];
+      n.title = title;
+      n.category = category;
+      n.updatedAt = now;
+      // Bij notities met desktop's nieuwere pagina-structuur schrijven we terug in de actieve/
+      // eerste pagina i.p.v. het (dan genegeerde) platte contentHTML-veld te overschrijven —
+      // andere pagina's en canvas-elementen daarop blijven zo intact staan. Zie noteReadableHtml()
+      // hierboven voor de uitleg van dit schema-verschil tussen desktop en mobiel.
+      if (Array.isArray(n.pages) && n.pages.length) {
+        const pageIdx = n.pages.findIndex((p) => p.id === n.activePageId);
+        n.pages[pageIdx !== -1 ? pageIdx : 0].bodyHtml = contentHTML;
+      }
+      // Legacy velden ook bijwerken (voor notities zonder pages, en als veilige fallback).
+      n.contentHTML = contentHTML;
+      n.content = plain;
     }
   } else {
     notes.unshift({ id: genId('n'), title, category, contentHTML, content: plain, createdAt: now, updatedAt: now });
