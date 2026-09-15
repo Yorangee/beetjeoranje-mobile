@@ -165,6 +165,10 @@ function setupNav() {
         };
         const cfg = emptyMsgByTarget[target];
         if (cfg) document.getElementById(cfg[0]).innerHTML = '<div class="empty">Log in met Google via instellingen (⚙) om ' + cfg[1] + ' te zien.</div>';
+        // Trainingsschema staat vast in code en heeft geen Google nodig — die dus altijd
+        // meteen tonen, ook zonder (nog) geldige inlog. Alleen Gewicht/Voeding (die wel uit
+        // de gedeelde Drive-data komen) blijven achter de inlog-melding hierboven.
+        if (target === 'sport') { renderTrainingWeekLabel(); renderTrainingDayLabel(); renderTrainingBody(); }
         return;
       }
       if (target === 'algemeen') loadNotesView();

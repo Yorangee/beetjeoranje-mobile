@@ -936,17 +936,29 @@ function trainingExerciseCategory(name) {
   const has = (...keys) => keys.some((k) => n.includes(k));
 
   if (has('squat', 'hurk')) return 'squat';
+  // Specifiekere varianten vóór hun generieke categorie checken — anders zou "Romanian
+  // Deadlift" bijv. al op de generieke 'deadlift'-check blijven hangen (die bevat ook
+  // gewoon "deadlift") en "Hammer Curls"/"Overhead Tricep Extension" zouden op de generieke
+  // 'bicepCurl'/'triceps'-check blijven hangen (die bevatten ook "curl"/"tricep").
+  if (has('romanian deadlift', 'roemeense dodehef')) return 'romanianDeadlift';
   if (has('deadlift', 'dead lift')) return 'deadlift';
+  if (has('incline') && has('press')) return 'inclinePress';
   if (has('bench press', 'bankdruk', 'chest press', 'borstpers', 'borst pers')) return 'benchPress';
   if (has('shoulder press', 'overhead press', 'schouderdruk', 'military press', 'militaire pers')) return 'shoulderPress';
-  if (has('pulldown', 'pull down', 'pull-up', 'pullup', 'chin-up', 'chinup', 'optrek')) return 'pulldown';
+  if (has('overhead tricep', 'overhead triceps')) return 'overheadTricepExt';
+  // Bodyweight optrekken (aan een stang) vs. de kabelmachine uit elkaar houden, zodat
+  // "Lat pull-ups" ook echt een pull-up-foto krijgt i.p.v. een lat-pulldown-machinefoto.
+  if (has('pull-up', 'pullup', 'chin-up', 'chinup', 'optrek')) return 'pullup';
+  if (has('pulldown', 'pull down')) return 'pulldown';
   if (has('row', 'roeien', 'roei')) return 'row';
   if (has('plank', 'planken')) return 'plank';
   if (has('lunge', 'uitval')) return 'lunge';
   if (has('leg press', 'beenpers', 'been pers')) return 'legPress';
+  if (has('lateral raise', 'zijheffen', 'zij heffen')) return 'lateralRaise';
   if (has('fly', 'flye', 'vlinder')) return 'chestFly';
   if (has('calf', 'kuit')) return 'calfRaise';
   if (has('leg extension', 'leg curl', 'beenstrek', 'been curl', 'hamstring')) return 'legExtension';
+  if (has('hammer curl', 'hamercurl', 'hamer curl')) return 'hammerCurl';
   if (has('tricep', 'triceps', 'kickback', 'skullcrusher', 'skull crusher')) return 'triceps';
   if (has('crunch', 'sit-up', 'situp', 'buikspier')) return 'situp';
   if (has('bicep', 'curl')) return 'bicepCurl';
@@ -962,16 +974,22 @@ function trainingExerciseCategory(name) {
 const TRAINING_PHOTO_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 const TRAINING_PHOTO_IDS = {
   bicepCurl: 'Dumbbell_Bicep_Curl',
+  hammerCurl: 'Hammer_Curls',
   triceps: 'Triceps_Pushdown',
+  overheadTricepExt: 'Standing_Dumbbell_Triceps_Extension',
   squat: 'Barbell_Squat',
   deadlift: 'Barbell_Deadlift',
+  romanianDeadlift: 'Romanian_Deadlift',
   benchPress: 'Barbell_Bench_Press_-_Medium_Grip',
+  inclinePress: 'Incline_Dumbbell_Press',
   shoulderPress: 'Seated_Dumbbell_Press',
+  pullup: 'Pullups',
   pulldown: 'Wide-Grip_Lat_Pulldown',
   row: 'Bent_Over_Barbell_Row',
   plank: 'Plank',
   lunge: 'Barbell_Lunge',
   legPress: 'Leg_Press',
+  lateralRaise: 'Side_Lateral_Raise',
   chestFly: 'Cable_Crossover',
   calfRaise: 'Standing_Calf_Raises',
   legExtension: 'Leg_Extensions',
@@ -1045,6 +1063,7 @@ function saveTrainingLog(log) { setSharedKey(TRAINING_LOG_KEY, log); }
 
 // "Laatste hoogste kg" voor een oefening-plek: zoekt (over alle weken, nieuwste eerst) de
 // meest recente week waarin die plek een ingevulde set had, en pakt daarvan de hoogste kg.
+// Gebruikt als terugval-referentie in het overzicht voor een week die zelf nog leeg is.
 function trainingLastBestKg(dayKey, exIdx) {
   const log = getTrainingLog();
   const weeks = Object.keys(log).sort().reverse();
@@ -1056,6 +1075,18 @@ function trainingLastBestKg(dayKey, exIdx) {
     }
   }
   return null;
+}
+
+// De hoogste ingevulde kg voor een oefening-plek in ÉÉN SPECIFIEKE week — i.p.v. de
+// hierboven, die juist over alle weken heen zoekt. Gebruikt in het overzicht zodat het
+// wisselen van week (met de pijltjes) ook echt andere cijfers laat zien i.p.v. steeds
+// dezelfde "laatst ingevulde" waarde ongeacht welke week je bekijkt.
+function trainingWeekKg(weekMonday, dayKey, exIdx) {
+  const log = getTrainingLog();
+  const entry = log[weekMonday] && log[weekMonday][dayKey] && log[weekMonday][dayKey][exIdx];
+  if (!entry || !Array.isArray(entry.kgs)) return null;
+  const filled = entry.kgs.filter((n) => typeof n === 'number' && !isNaN(n) && n > 0);
+  return filled.length ? Math.max(...filled) : null;
 }
 
 let trainingActiveWeekMonday = getWeekMondayYmd(new Date());
@@ -1098,11 +1129,17 @@ function renderTrainingBody() {
   const schema = getTrainingSchema();
   const names = schema[trainingActiveDay] || [];
   el.innerHTML = names.map((name, i) => {
-    const pr = trainingLastBestKg(trainingActiveDay, i);
+    // Eerst kijken of ER voor DEZE specifieke week al iets is ingevuld — zo laat het
+    // wisselen van week (pijltjes) ook echt andere cijfers zien. Alleen als deze week nog
+    // leeg is, terugvallen op de laatst bekende kg (uit een eerdere week) als referentie.
+    const weekKg = trainingWeekKg(trainingActiveWeekMonday, trainingActiveDay, i);
+    const label = weekKg != null
+      ? trainingFmtKg(weekKg) + ' kg'
+      : (() => { const pr = trainingLastBestKg(trainingActiveDay, i); return pr != null ? trainingFmtKg(pr) + ' kg (laatst)' : '—'; })();
     return `<div class="training-ex-row">
       <span class="training-ex-num">${i + 1}</span>
       <span class="training-ex-name">${esc(name)}</span>
-      <span class="training-ex-pr">${pr != null ? trainingFmtKg(pr) + ' kg' : '—'}</span>
+      <span class="training-ex-pr">${label}</span>
     </div>`;
   }).join('');
 }
@@ -1176,19 +1213,54 @@ const TRAINING_START_MESSAGES = [
   'Laat die gewichten maar trillen — veel succes! 💪'
 ];
 
-function closeTrainingSession() {
+async function closeTrainingSession() {
   trainingSaveCurrentSetInputs();
-  trainingPersistSessionEntries();
+  await trainingPersistSessionEntries();
   if (trainingSessionTimerHandle) { clearInterval(trainingSessionTimerHandle); trainingSessionTimerHandle = null; }
   document.getElementById('trainingSessionOverlay').classList.add('hidden');
   renderTrainingBody(); // PR's kunnen net bijgewerkt zijn
 }
 
-function trainingPersistSessionEntries() {
-  const log = getTrainingLog();
-  if (!log[trainingSessionWeek]) log[trainingSessionWeek] = {};
-  log[trainingSessionWeek][trainingSessionDay] = trainingSessionEntries;
-  saveTrainingLog(log);
+// Slaat de invoer van de huidige sessie op. Haalt bij een geldige Google-login eerst de
+// ALLERNIEUWSTE trainingslog rechtstreeks van Drive op en voegt daar alleen deze
+// week+dag aan toe — i.p.v. te vertrouwen op de kopie die bij het openen van de app is
+// ingeladen (sharedData). Die kopie kan inmiddels verouderd zijn, bijvoorbeeld omdat de
+// app al dagenlang open stond zonder echte herlaad, of omdat het desktop-dashboard
+// ondertussen ook heeft opgeslagen — zonder deze verse ophaal-en-samenvoeg-stap kon een
+// eerder ingevulde training zo alsnog overschreven en dus "verdwenen" raken.
+async function trainingPersistSessionEntries() {
+  const localOnlyWrite = () => {
+    const log = getTrainingLog();
+    if (!log[trainingSessionWeek]) log[trainingSessionWeek] = {};
+    log[trainingSessionWeek][trainingSessionDay] = trainingSessionEntries;
+    saveTrainingLog(log);
+  };
+
+  if (!isGoogleSignedIn()) { localOnlyWrite(); return; }
+
+  try {
+    const found = await driveFindLatestSyncFile();
+    let remote = {};
+    if (found) {
+      const raw = await driveReadFileRaw(found.id);
+      remote = (raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object') ? raw.data : (raw || {});
+    }
+    let remoteLog = {};
+    try { remoteLog = JSON.parse(remote[TRAINING_LOG_KEY] || '{}') || {}; } catch (e) { remoteLog = {}; }
+    if (!remoteLog[trainingSessionWeek]) remoteLog[trainingSessionWeek] = {};
+    remoteLog[trainingSessionWeek][trainingSessionDay] = trainingSessionEntries;
+
+    // De rest van de gedeelde data (budget, notities, enz.) blijft zoals die nu al in het
+    // geheugen van deze sessie staat — alleen de trainingslog wordt vervangen door de vers
+    // samengevoegde versie, zodat deze schrijfactie niets anders overschrijft.
+    sharedData = Object.assign({}, remote, sharedData || {});
+    sharedData[TRAINING_LOG_KEY] = JSON.stringify(remoteLog);
+    sharedDataLoaded = true;
+    schedulePushSharedData();
+  } catch (e) {
+    console.error('vers ophalen voor trainingslog-samenvoeging mislukt, val terug op lokale kopie', e);
+    localOnlyWrite();
+  }
 }
 
 // Leest de 3 zichtbare kg-invoervelden en schrijft ze terug naar de werkkopie — nodig vóór
@@ -1391,9 +1463,9 @@ function trainingShowCompletionPopup() {
 // via het vinkje zijn afgevinkt. Slaat alle ingevulde gewichten op, sluit het sessiescherm en
 // toont een positieve samenvatting. De gewichten zijn daarna direct zichtbaar in het overzicht
 // (de Trainingsschema-lijst toont steeds de laatst opgeslagen kg per oefening).
-function finishTrainingSession() {
+async function finishTrainingSession() {
   trainingSaveCurrentSetInputs();
-  trainingPersistSessionEntries();
+  await trainingPersistSessionEntries();
   if (trainingSessionTimerHandle) { clearInterval(trainingSessionTimerHandle); trainingSessionTimerHandle = null; }
   document.getElementById('trainingSessionOverlay').classList.add('hidden');
   renderTrainingBody(); // gewichten meteen zichtbaar in het overzicht
